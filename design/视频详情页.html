@@ -83,17 +83,16 @@
     background: rgba(7,14,22,.8); border-radius: 5px; padding: 2px 9px;
   }
 
-  .v-type {
-    display: inline-block;
-    margin: 18px 0 10px;
-    font-size: 11.5px; font-weight: 700;
-    padding: 3px 11px; border-radius: 5px;
-    color: #04141A;
+  /* 标题行：标题 + 右上方编辑入口 */
+  .title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-top: 18px; }
+  .v-title { flex: 1; font-size: 21px; font-weight: 800; letter-spacing: .5px; line-height: 1.4; }
+  .edit-top {
+    flex-shrink: 0; margin-top: 2px;
+    font-size: 12.5px; text-decoration: none;
+    border: 1px solid var(--gold); border-radius: 999px;
+    color: var(--gold); padding: 6px 16px;
   }
-  .v-type.pro { background: var(--cyan); }
-  .v-type.con { background: var(--red); color: var(--gold-bright); }
-
-  .v-title { font-size: 21px; font-weight: 800; letter-spacing: .5px; line-height: 1.4; }
+  .edit-top:hover { background: rgba(200,170,110,.1); }
 
   .v-meta {
     display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
@@ -103,7 +102,7 @@
 
   /* 操作栏 */
   .v-actions {
-    display: flex; gap: 12px;
+    display: flex; justify-content: center; gap: 12px;
     margin-top: 18px;
     padding: 14px 0;
     border-top: 1px solid var(--line-soft);
@@ -228,8 +227,11 @@
           <span class="duration-tag">12:34</span>
         </div>
 
-        <span class="v-type pro">操作你</span>
-        <h1 class="v-title">视频标题占位：英雄名称如何对位英雄名称</h1>
+        <div class="title-row">
+          <h1 class="v-title">视频标题占位：英雄名称如何对位英雄名称</h1>
+          <!-- 仅自己发布的内容显示编辑入口（原型演示为自己发布） -->
+          <a class="edit-top" href="视频编辑页.html">✎ 编辑</a>
+        </div>
 
         <div class="v-meta">
           <span class="up">UP主：名称占位</span>
@@ -237,14 +239,14 @@
           <span>发布时间 占位</span>
         </div>
 
+        <div class="v-desc">
+          <p class="placeholder">视频简介占位：对线思路、符文出装说明、注意事项等文字内容占位。</p>
+        </div>
+
         <div class="v-actions">
           <button class="act">▲ 点赞 占位</button>
           <button class="act">☆ 收藏</button>
           <button class="act">分享</button>
-        </div>
-
-        <div class="v-desc">
-          <p class="placeholder">视频简介占位：对线思路、符文出装说明、注意事项等文字内容占位。</p>
         </div>
 
         <!-- 评论区 -->

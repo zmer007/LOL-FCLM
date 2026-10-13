@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>发布图文 · 路边联盟</title>
+<style>
+  :root {
+    --bg: #070E16;
+    --panel: #0E1C2C;
+    --panel-2: #132438;
+    --line: #22394F;
+    --line-soft: #1B2E42;
+    --gold: #C8AA6E;
+    --gold-bright: #F0E6D2;
+    --cyan: #0AC8B9;
+    --red: #E84057;
+    --mute: #8FA3B8;
+    --faint: #5F7387;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--gold-bright);
+    min-height: 100vh;
+  }
+
+  /* ============ 顶部导航（与其他页一致） ============ */
+  header {
+    height: 62px;
+    padding: 0 40px;
+    display: flex; align-items: center; gap: 36px;
+    border-bottom: 1px solid var(--line-soft);
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(7,14,22,.92);
+  }
+  nav { display: flex; gap: 28px; font-size: 14px; }
+  nav a { color: var(--mute); text-decoration: none; cursor: pointer; }
+  nav a.on { color: var(--gold-bright); }
+  .avatar {
+    margin-left: auto;
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--gold);
+    background: var(--panel); color: var(--gold);
+    display: grid; place-items: center; font-size: 13px;
+    cursor: pointer; text-decoration: none;
+  }
+
+  main { max-width: 800px; margin: 0 auto; padding: 0 24px 60px; }
+
+  .back {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 24px; font-size: 13px; color: var(--faint);
+    text-decoration: none; cursor: pointer;
+  }
+  .back:hover { color: var(--gold); }
+
+  .page-head { margin: 16px 0 22px; }
+  .page-title { font-size: 24px; font-weight: 800; letter-spacing: 1px; }
+  .page-sub { margin-top: 6px; font-size: 13px; color: var(--faint); }
+
+  .section {
+    background: var(--panel);
+    border: 1px solid var(--line-soft);
+    border-radius: 16px;
+    padding: 26px 30px 28px;
+  }
+
+  /* ============ 表单 ============ */
+  .form-row { margin-top: 22px; }
+  .form-row:first-child { margin-top: 0; }
+  .form-row.two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .form-label {
+    display: block; font-size: 13px; color: var(--mute);
+    margin-bottom: 9px;
+  }
+  .form-label .req { color: var(--red); margin-left: 3px; }
+  .inp {
+    width: 100%; height: 40px; padding: 0 14px;
+    background: #0A1520; border: 1px solid var(--line); border-radius: 8px;
+    color: var(--gold-bright); font-size: 13px; font-family: inherit;
+    outline: none; transition: border-color .15s;
+  }
+  .inp:focus { border-color: var(--gold); }
+  .inp::placeholder { color: var(--faint); }
+  textarea.inp {
+    height: auto; min-height: 220px; padding: 12px 14px;
+    resize: vertical; line-height: 1.9;
+  }
+
+  /* 关联英雄（只读） */
+  .champ-readonly {
+    height: 40px; display: flex; align-items: center; gap: 8px;
+    padding: 0 14px;
+    background: #0A1520; border: 1px solid var(--line); border-radius: 8px;
+    font-size: 13px; color: var(--gold);
+  }
+  .champ-readonly .lock { color: var(--faint); font-size: 12px; margin-left: auto; }
+
+  /* 类型二选一 */
+  .seg { display: flex; gap: 12px; }
+  .seg button {
+    flex: 1; height: 40px;
+    font-family: inherit; font-size: 13px; cursor: pointer;
+    background: #0A1520; border: 1px solid var(--line); border-radius: 8px;
+    color: var(--faint);
+    transition: border-color .15s, color .15s;
+  }
+  .seg button .seg-desc { display: block; font-size: 11px; color: var(--faint); margin-top: 2px; }
+  .seg button.on.pro { border-color: var(--cyan); color: var(--cyan); }
+  .seg button.on.con { border-color: var(--red); color: var(--red); }
+  .seg button.on .seg-desc { color: inherit; opacity: .75; }
+
+  /* 配图：缩略图列表 + 添加按钮 */
+  .img-list { display: flex; flex-wrap: wrap; gap: 10px; }
+  .img-item {
+    position: relative;
+    width: 88px; height: 88px;
+    border-radius: 8px; overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .img-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .img-item .rm {
+    position: absolute; right: 4px; top: 4px;
+    width: 18px; height: 18px; border-radius: 50%;
+    border: none; cursor: pointer;
+    background: rgba(7,14,22,.8); color: var(--gold-bright);
+    font-size: 11px; line-height: 18px; text-align: center; padding: 0;
+  }
+  .img-item .rm:hover { background: var(--red); }
+  .img-add {
+    width: 88px; height: 88px;
+    border: 1.5px dashed var(--line); border-radius: 8px;
+    background: #0A1520;
+    display: grid; place-items: center;
+    color: var(--faint); font-size: 12px; text-align: center; line-height: 1.6;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .img-add:hover { border-color: var(--gold); color: var(--gold); }
+  .img-add .plus { font-size: 20px; display: block; }
+
+  .form-actions {
+    display: flex; gap: 12px; justify-content: flex-end;
+    margin-top: 28px; padding-top: 22px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .btn {
+    height: 40px; padding: 0 30px;
+    border-radius: 9px;
+    font-family: inherit; font-size: 14px; cursor: pointer;
+    text-decoration: none; display: inline-flex; align-items: center;
+  }
+  .btn-primary { background: var(--gold); border: none; color: #0A1428; font-weight: 700; }
+  .btn-primary:hover { background: var(--gold-bright); }
+  .btn-ghost { background: none; border: 1px solid var(--line); color: var(--mute); }
+  .btn-ghost:hover { border-color: var(--gold); color: var(--gold); }
+
+  .form-err {
+    display: none;
+    margin-top: 14px; font-size: 12.5px; color: var(--red);
+  }
+  .form-err.show { display: block; }
+
+  /* 提交成功态 */
+  .success { display: none; text-align: center; padding: 30px 20px 10px; }
+  .success.show { display: block; }
+  .success-ic {
+    width: 64px; height: 64px; margin: 0 auto 18px;
+    border-radius: 50%;
+    border: 2px solid var(--cyan); color: var(--cyan);
+    display: grid; place-items: center; font-size: 30px;
+  }
+  .success b { display: block; font-size: 18px; color: var(--gold-bright); }
+  .success p { margin-top: 8px; font-size: 13px; color: var(--faint); }
+  .success .form-actions { justify-content: center; border-top: 0; }
+
+  @media (max-width: 640px) {
+    .form-row.two { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <nav>
+      <a href="首页设计.html">首页</a>
+      <a href="英雄页面.html">英雄</a>
+      <a href="装备符文页面.html">装备&amp;符文</a>
+      <a href="关于页面.html">关于</a>
+    </nav>
+    <a class="avatar" href="我的页面.html">我</a>
+  </header>
+
+  <main>
+    <a class="back" href="对线页面.html">← 返回对线页</a>
+
+    <div class="page-head">
+      <div class="page-title">发布图文</div>
+      <div class="page-sub">用文字和图片分享该英雄的对线思路：选择类型并填写对位信息，方便其他玩家检索</div>
+    </div>
+
+    <section class="section">
+      <!-- 表单 -->
+      <form id="publishForm" novalidate>
+        <!-- 标题 -->
+        <div class="form-row">
+          <label class="form-label" for="title">图文标题<span class="req">*</span></label>
+          <input class="inp" type="text" id="title" maxlength="50" placeholder="一句话概括这篇图文，如：对线期控线与游走时机详解">
+        </div>
+
+        <!-- 类型 + 对位英雄 -->
+        <div class="form-row two">
+          <div>
+            <label class="form-label">图文类型<span class="req">*</span></label>
+            <div class="seg" id="typeSeg">
+              <button type="button" class="on pro" data-type="pro">
+                本英雄打法<span class="seg-desc">以该英雄为视角</span>
+              </button>
+              <button type="button" class="con" data-type="con">
+                对位英雄打法<span class="seg-desc">以对位英雄为视角</span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="form-label" for="vsChamp">对位英雄</label>
+            <input class="inp" type="text" id="vsChamp" placeholder="输入对位英雄名称">
+          </div>
+        </div>
+
+        <!-- 关联英雄（从对线页进入，固定为当前英雄） -->
+        <div class="form-row">
+          <label class="form-label">关联英雄</label>
+          <div class="champ-readonly">
+            <span>英雄名称占位</span>
+            <span class="lock">随对线页自动带入</span>
+          </div>
+        </div>
+
+        <!-- 正文 -->
+        <div class="form-row">
+          <label class="form-label" for="content">正文<span class="req">*</span></label>
+          <textarea class="inp" id="content" placeholder="详细描述对线思路、符文出装理解、关键时间点、注意事项等"></textarea>
+        </div>
+
+        <!-- 配图（选填，可多张） -->
+        <div class="form-row">
+          <label class="form-label">配图（选填，可多张）</label>
+          <div class="img-list" id="imgList">
+            <label class="img-add" id="imgAdd">
+              <input type="file" id="imgInput" accept="image/*" multiple hidden>
+              <span><span class="plus">＋</span>添加图片</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-err" id="formErr"></div>
+
+        <div class="form-actions">
+          <a class="btn btn-ghost" href="对线页面.html">取消</a>
+          <button class="btn btn-primary" type="submit">提交发布</button>
+        </div>
+      </form>
+
+      <!-- 成功态 -->
+      <div class="success" id="successBox">
+        <div class="success-ic">✓</div>
+        <b>提交成功</b>
+        <p>图文已进入审核流程（原型演示，未真正发布）。审核通过后将出现在该英雄的对线内容列表中。</p>
+        <div class="form-actions">
+          <a class="btn btn-ghost" href="对线页面.html">返回对线页</a>
+          <button class="btn btn-primary" type="button" id="againBtn">再写一篇</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    var articleType = 'pro';
+
+    /* ============ 配图：多选 + 缩略图预览 + 删除 ============ */
+    var imgInput = document.getElementById('imgInput');
+    var imgList = document.getElementById('imgList');
+    var imgAdd = document.getElementById('imgAdd');
+
+    imgInput.addEventListener('change', function () {
+      Array.prototype.forEach.call(this.files, function (file) {
+        if (file.type.indexOf('image/') !== 0) return;
+        var reader = new FileReader();
+        reader.onload = function (ev) {
+          var item = document.createElement('div');
+          item.className = 'img-item';
+          item.innerHTML =
+            '<img alt="配图预览" src="' + ev.target.result + '">' +
+            '<button type="button" class="rm" title="删除">✕</button>';
+          imgList.insertBefore(item, imgAdd);
+        };
+        reader.readAsDataURL(file);
+      });
+      this.value = '';
+    });
+
+    imgList.addEventListener('click', function (e) {
+      var rm = e.target.closest('.rm');
+      if (rm) rm.closest('.img-item').remove();
+    });
+
+    /* ============ 类型切换 ============ */
+    document.getElementById('typeSeg').addEventListener('click', function (e) {
+      var btn = e.target.closest('button');
+      if (!btn) return;
+      this.querySelectorAll('button').forEach(function (b) { b.classList.remove('on'); });
+      btn.classList.add('on');
+      articleType = btn.dataset.type;
+    });
+
+    /* ============ 提交校验 ============ */
+    var form = document.getElementById('publishForm');
+    var errBox = document.getElementById('formErr');
+    var successBox = document.getElementById('successBox');
+
+    function showErr(msg) {
+      errBox.textContent = msg;
+      errBox.classList.add('show');
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      errBox.classList.remove('show');
+
+      var title = document.getElementById('title').value.trim();
+      var content = document.getElementById('content').value.trim();
+      if (!title) return showErr('请填写图文标题');
+      if (!content) return showErr('请填写正文内容');
+
+      /* 原型演示：无后端，直接展示成功态 */
+      form.style.display = 'none';
+      successBox.classList.add('show');
+    });
+
+    document.getElementById('againBtn').addEventListener('click', function () {
+      form.reset();
+      imgList.querySelectorAll('.img-item').forEach(function (el) { el.remove(); });
+      document.querySelectorAll('#typeSeg button').forEach(function (b, i) {
+        b.classList.toggle('on', i === 0);
+      });
+      errBox.classList.remove('show');
+      successBox.classList.remove('show');
+      form.style.display = '';
+    });
+  </script>
+
+</body>
+</html>
