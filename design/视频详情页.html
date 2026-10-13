@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>视频标题占位 · 废柴联盟</title>
+<style>
+  :root {
+    --bg: #070E16;
+    --panel: #0E1C2C;
+    --panel-2: #132438;
+    --line: #22394F;
+    --line-soft: #1B2E42;
+    --gold: #C8AA6E;
+    --gold-bright: #F0E6D2;
+    --cyan: #0AC8B9;
+    --red: #E84057;
+    --mute: #8FA3B8;
+    --faint: #5F7387;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--gold-bright);
+    min-height: 100vh;
+  }
+
+  /* ============ 顶部导航（与其他页一致） ============ */
+  header {
+    height: 62px;
+    padding: 0 40px;
+    display: flex; align-items: center; gap: 36px;
+    border-bottom: 1px solid var(--line-soft);
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(7,14,22,.92);
+  }
+  nav { display: flex; gap: 28px; font-size: 14px; }
+  nav a { color: var(--mute); text-decoration: none; cursor: pointer; }
+  nav a.on { color: var(--gold-bright); }
+  .avatar {
+    margin-left: auto;
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--gold);
+    background: var(--panel); color: var(--gold);
+    display: grid; place-items: center; font-size: 13px;
+    cursor: pointer;
+  }
+
+  main { max-width: 900px; margin: 0 auto; padding: 0 24px 60px; }
+
+  /* ============ 返回 ============ */
+  .back {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 24px; font-size: 13px; color: var(--faint);
+    text-decoration: none; cursor: pointer;
+  }
+  .back:hover { color: var(--gold); }
+
+  .detail-grid {
+    margin-top: 14px;
+  }
+
+  /* ============ 左侧：播放器 + 信息 ============ */
+  .player {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    border: 1px solid var(--line-soft);
+    border-radius: 14px; overflow: hidden;
+    display: grid; place-items: center;
+  }
+  .player .play-big {
+    width: 0; height: 0;
+    border-left: 54px solid rgba(200,170,110,.85);
+    border-top: 34px solid transparent;
+    border-bottom: 34px solid transparent;
+    cursor: pointer;
+  }
+  .player .duration-tag {
+    position: absolute; right: 14px; bottom: 14px;
+    font-size: 12px; color: var(--gold-bright);
+    background: rgba(7,14,22,.8); border-radius: 5px; padding: 2px 9px;
+  }
+
+  .v-type {
+    display: inline-block;
+    margin: 18px 0 10px;
+    font-size: 11.5px; font-weight: 700;
+    padding: 3px 11px; border-radius: 5px;
+    color: #04141A;
+  }
+  .v-type.pro { background: var(--cyan); }
+  .v-type.con { background: var(--red); color: var(--gold-bright); }
+
+  .v-title { font-size: 21px; font-weight: 800; letter-spacing: .5px; line-height: 1.4; }
+
+  .v-meta {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    margin-top: 12px; font-size: 12.5px; color: var(--faint);
+  }
+  .v-meta .up { color: var(--mute); }
+
+  /* 操作栏 */
+  .v-actions {
+    display: flex; gap: 12px;
+    margin-top: 18px;
+    padding: 14px 0;
+    border-top: 1px solid var(--line-soft);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .act {
+    font-family: inherit; font-size: 13px; cursor: pointer;
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 999px; color: var(--mute);
+    padding: 7px 20px;
+  }
+  .act:hover { border-color: var(--gold); color: var(--gold); }
+
+  /* 简介 */
+  .v-desc {
+    margin-top: 18px;
+    font-size: 13px; color: var(--mute); line-height: 1.9;
+  }
+  .v-desc .placeholder { color: var(--faint); }
+
+  /* 评论占位 */
+  .comments { margin-top: 34px; }
+  .comments-title {
+    font-size: 15px; font-weight: 700; color: var(--gold-bright);
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 16px;
+  }
+  .comments-title::before {
+    content: ""; width: 3px; height: 14px; background: var(--gold); border-radius: 2px;
+  }
+  .comment {
+    display: flex; gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .c-avatar {
+    width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+    background: var(--panel-2); border: 1px solid var(--line);
+  }
+  .c-body { flex: 1; min-width: 0; font-size: 13px; line-height: 1.7; }
+  .c-name { font-size: 12px; color: var(--faint); margin-bottom: 4px; }
+  .c-text { color: var(--mute); }
+  .c-text .placeholder { color: var(--faint); }
+
+  /* 评论下的操作行：点赞 / 回复 */
+  .c-ops { display: flex; align-items: center; gap: 18px; margin-top: 7px; }
+  .c-op {
+    font-family: inherit; font-size: 12px; cursor: pointer;
+    background: none; border: none; color: var(--faint); padding: 0;
+  }
+  .c-op:hover { color: var(--gold); }
+  .c-op.liked { color: var(--gold); }
+
+  /* 子回复 */
+  .replies { margin-top: 12px; padding-left: 0; }
+  .reply {
+    display: flex; gap: 10px;
+    padding: 12px 0 0;
+  }
+  .reply .c-avatar { width: 30px; height: 30px; }
+  .reply .c-body { font-size: 12.5px; line-height: 1.65; }
+  .reply-to { color: var(--cyan); }
+
+  /* 回复输入框（默认隐藏） */
+  .reply-box { display: none; gap: 8px; margin-top: 10px; }
+  .reply-box.on { display: flex; }
+  .reply-box input {
+    flex: 1; height: 34px; padding: 0 12px;
+    background: #0A1520; border: 1px solid var(--line); border-radius: 8px;
+    color: var(--gold-bright); font-size: 12.5px; font-family: inherit; outline: none;
+  }
+  .reply-box input:focus { border-color: var(--gold); }
+  .reply-box button {
+    height: 34px; padding: 0 16px;
+    background: var(--gold); border: none; border-radius: 8px;
+    color: #0A1520; font-size: 12.5px; font-weight: 700; font-family: inherit;
+    cursor: pointer;
+  }
+
+  /* 顶部写评论框 */
+  .comment-editor { display: flex; gap: 10px; margin-bottom: 8px; }
+  .comment-editor textarea {
+    flex: 1; min-height: 64px; resize: none; padding: 10px 12px;
+    background: #0A1520; border: 1px solid var(--line); border-radius: 8px;
+    color: var(--gold-bright); font-size: 13px; font-family: inherit; outline: none;
+  }
+  .comment-editor textarea:focus { border-color: var(--gold); }
+  .comment-editor textarea::placeholder { color: var(--faint); }
+  .editor-foot {
+    display: flex; justify-content: flex-end;
+    margin: 8px 0 20px;
+  }
+  .editor-foot button {
+    height: 34px; padding: 0 22px;
+    background: var(--gold); border: none; border-radius: 8px;
+    color: #0A1520; font-size: 13px; font-weight: 700; font-family: inherit;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <nav>
+      <a href="首页设计.html">首页</a>
+      <a class="on" href="英雄页面.html">英雄</a>
+      <a>装备</a>
+      <a>符文</a>
+    </nav>
+    <div class="avatar">我</div>
+  </header>
+
+  <main>
+    <a class="back" href="英雄页面.html">← 返回英雄页</a>
+
+    <div class="detail-grid">
+      <!-- 左侧主体 -->
+      <div class="detail-main">
+        <!-- 播放器 -->
+        <div class="player">
+          <span class="play-big"></span>
+          <span class="duration-tag">12:34</span>
+        </div>
+
+        <span class="v-type pro">操作你</span>
+        <h1 class="v-title">视频标题占位：英雄名称如何对位英雄名称</h1>
+
+        <div class="v-meta">
+          <span class="up">UP主：名称占位</span>
+          <span>播放量 占位</span>
+          <span>发布时间 占位</span>
+        </div>
+
+        <div class="v-actions">
+          <button class="act">▲ 点赞 占位</button>
+          <button class="act">☆ 收藏</button>
+          <button class="act">分享</button>
+        </div>
+
+        <div class="v-desc">
+          <p class="placeholder">视频简介占位：对线思路、符文出装说明、注意事项等文字内容占位。</p>
+        </div>
+
+        <!-- 评论区 -->
+        <div class="comments">
+          <div class="comments-title">评论 <span id="commentCount">占位</span></div>
+
+          <!-- 写评论 -->
+          <div class="comment-editor">
+            <div class="c-avatar"></div>
+            <textarea id="commentInput" placeholder="发一条友善的评论"></textarea>
+          </div>
+          <div class="editor-foot">
+            <button id="commentSubmit">发表评论</button>
+          </div>
+
+          <!-- 评论 1（含点赞、回复、子回复） -->
+          <div class="comment">
+            <div class="c-avatar"></div>
+            <div class="c-body">
+              <div class="c-name">用户名称占位</div>
+              <div class="c-text"><span class="placeholder">评论内容占位，评论内容占位，评论内容占位。</span></div>
+              <div class="c-ops">
+                <button class="c-op like-btn">▲ 点赞 占位</button>
+                <button class="c-op reply-btn">回复</button>
+              </div>
+              <div class="reply-box">
+                <input type="text" placeholder="回复 用户名称占位">
+                <button class="reply-submit">回复</button>
+              </div>
+
+              <!-- 子回复 -->
+              <div class="replies">
+                <div class="reply">
+                  <div class="c-avatar"></div>
+                  <div class="c-body">
+                    <div class="c-name">用户名称占位</div>
+                    <div class="c-text"><span class="reply-to">@用户名称占位</span> <span class="placeholder">回复内容占位，回复内容占位。</span></div>
+                    <div class="c-ops">
+                      <button class="c-op like-btn">▲ 占位</button>
+                      <button class="c-op reply-btn">回复</button>
+                    </div>
+                    <div class="reply-box">
+                      <input type="text" placeholder="回复 用户名称占位">
+                      <button class="reply-submit">回复</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="reply">
+                  <div class="c-avatar"></div>
+                  <div class="c-body">
+                    <div class="c-name">用户名称占位</div>
+                    <div class="c-text"><span class="placeholder">回复内容占位。</span></div>
+                    <div class="c-ops">
+                      <button class="c-op like-btn liked">▲ 已赞 占位</button>
+                      <button class="c-op reply-btn">回复</button>
+                    </div>
+                    <div class="reply-box">
+                      <input type="text" placeholder="回复 用户名称占位">
+                      <button class="reply-submit">回复</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 评论 2 -->
+          <div class="comment">
+            <div class="c-avatar"></div>
+            <div class="c-body">
+              <div class="c-name">用户名称占位</div>
+              <div class="c-text"><span class="placeholder">评论内容占位，评论内容占位。</span></div>
+              <div class="c-ops">
+                <button class="c-op like-btn">▲ 点赞 占位</button>
+                <button class="c-op reply-btn">回复</button>
+              </div>
+              <div class="reply-box">
+                <input type="text" placeholder="回复 用户名称占位">
+                <button class="reply-submit">回复</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // 点赞：切换已赞状态（纯前端演示）
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.like-btn');
+      if (!btn) return;
+      btn.classList.toggle('liked');
+      btn.textContent = btn.classList.contains('liked') ? '▲ 已赞 占位' : '▲ 点赞 占位';
+    });
+
+    // 回复：展开/收起对应输入框
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.reply-btn');
+      if (!btn) return;
+      var box = btn.closest('.c-body').querySelector('.reply-box');
+      var show = !box.classList.contains('on');
+      box.classList.toggle('on', show);
+      if (show) box.querySelector('input').focus();
+    });
+
+    // 提交回复：占位提示并收起
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.reply-submit');
+      if (!btn) return;
+      var box = btn.closest('.reply-box');
+      box.querySelector('input').value = '';
+      box.classList.remove('on');
+    });
+
+    // 发表评论：占位演示
+    document.getElementById('commentSubmit').addEventListener('click', function () {
+      document.getElementById('commentInput').value = '';
+    });
+  </script>
+
+</body>
+</html>

@@ -552,7 +552,7 @@
           // 交替演示操作你 / 被操作
           var isPro = (start + i) % 2 === 0;
           html +=
-            '<div class="video-card">' +
+            '<div class="video-card" onclick="location.href=\'视频详情页.html\'">' +
               '<div class="video-thumb ' + (isPro ? 'pro' : 'con') + '">' +
                 '<span class="video-badge ' + (isPro ? 'pro' : 'con') + '">' +
                   (isPro ? '操作你' : '被操作') + '</span>' +
