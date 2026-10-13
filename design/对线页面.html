@@ -194,9 +194,19 @@
   .video-search button {
     height: 38px; padding: 0 22px;
     background: var(--gold); border: none; border-radius: 8px;
-    color: #0A1520; font-size: 13px; font-weight: 700; font-family: inherit;
+    color: #0A1428; font-size: 13px; font-weight: 700; font-family: inherit;
     cursor: pointer;
   }
+  .video-upload {
+    margin-left: auto;
+    height: 38px; padding: 0 20px;
+    display: inline-flex; align-items: center; gap: 6px;
+    background: none; border: 1px solid var(--gold); border-radius: 8px;
+    color: var(--gold); font-size: 13px; font-family: inherit;
+    text-decoration: none; cursor: pointer;
+    transition: background .15s;
+  }
+  .video-upload:hover { background: rgba(200,170,110,.1); }
   /* 九宫格 */
   .video-grid {
     display: grid; grid-template-columns: repeat(3, 1fr);
@@ -544,6 +554,7 @@
       <div class="video-search">
         <input type="text" id="videoKw" placeholder="输入对位英雄">
         <button id="videoBtn">搜索</button>
+        <a class="video-upload" href="视频编辑页.html">＋ 上传视频</a>
       </div>
       <div class="video-grid" id="videoGrid"></div>
       <div class="pager" id="videoPager"></div>

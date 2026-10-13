@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>上传视频 · 路边联盟</title>
+<style>
+  :root {
+    --bg: #070E16;
+    --panel: #0E1C2C;
+    --panel-2: #132438;
+    --line: #22394F;
+    --line-soft: #1B2E42;
+    --gold: #C8AA6E;
+    --gold-bright: #F0E6D2;
+    --cyan: #0AC8B9;
+    --red: #E84057;
+    --mute: #8FA3B8;
+    --faint: #5F7387;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--gold-bright);
+    min-height: 100vh;
+  }
+
+  /* ============ 顶部导航（与其他页一致） ============ */
+  header {
+    height: 62px;
+    padding: 0 40px;
+    display: flex; align-items: center; gap: 36px;
+    border-bottom: 1px solid var(--line-soft);
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(7,14,22,.92);
+  }
+  nav { display: flex; gap: 28px; font-size: 14px; }
+  nav a { color: var(--mute); text-decoration: none; cursor: pointer; }
+  nav a.on { color: var(--gold-bright); }
+  .avatar {
+    margin-left: auto;
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--gold);
+    background: var(--panel); color: var(--gold);
+    display: grid; place-items: center; font-size: 13px;
+    cursor: pointer; text-decoration: none;
+  }
+
+  main { max-width: 800px; margin: 0 auto; padding: 0 24px 60px; }
+
+  .back {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 24px; font-size: 13px; color: var(--faint);
+    text-decoration: none; cursor: pointer;
+  }
+  .back:hover { color: var(--gold); }
+
+  .page-head { margin: 16px 0 22px; }
+  .page-title { font-size: 24px; font-weight: 800; letter-spacing: 1px; }
+  .page-sub { margin-top: 6px; font-size: 13px; color: var(--faint); }
+
+  .section {
+    background: var(--panel);
+    border: 1px solid var(--line-soft);
+    border-radius: 16px;
+    padding: 26px 30px 28px;
+  }
+
+  /* ============ 视频上传区 ============ */
+  .drop {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 9px;
+    padding: 46px 20px;
+    border: 1.5px dashed var(--line); border-radius: 12px;
+    background: #0A1520;
+    cursor: pointer; text-align: center;
+    transition: border-color .15s, background .15s;
+  }
+  .drop:hover, .drop.over {
+    border-color: var(--gold);
+    background: rgba(200,170,110,.05);
+  }
+  .drop-ic {
+    width: 56px; height: 56px; border-radius: 50%;
+    border: 1px solid var(--line);
+    display: grid; place-items: center;
+    color: var(--faint); font-size: 20px;
+  }
+  .drop:hover .drop-ic, .drop.over .drop-ic { border-color: var(--gold); color: var(--gold); }
+  .drop-text { font-size: 14px; color: var(--mute); }
+  .drop-sub { font-size: 12px; color: var(--faint); }
+  .drop-file { margin-top: 6px; font-size: 12.5px; color: var(--cyan); word-break: break-all; }
+  .drop-file.err { color: var(--red); }
+
+  /* ============ 表单 ============ */
+  .form-row { margin-top: 22px; }
+  .form-row.two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .form-label {
+    display: block; font-size: 13px; color: var(--mute);
+    margin-bottom: 9px;
+  }
+  .form-label .req { color: var(--red); margin-left: 3px; }
+  .inp {
+    width: 100%; height: 40px; padding: 0 14px;
+    background: #0A1520; border: 1px solid var(--line); border-radius: 8px;
+    color: var(--gold-bright); font-size: 13px; font-family: inherit;
+    outline: none; transition: border-color .15s;
+  }
+  .inp:focus { border-color: var(--gold); }
+  .inp::placeholder { color: var(--faint); }
+  textarea.inp {
+    height: auto; min-height: 96px; padding: 12px 14px;
+    resize: vertical; line-height: 1.7;
+  }
+
+  /* 关联英雄（只读） */
+  .champ-readonly {
+    height: 40px; display: flex; align-items: center; gap: 8px;
+    padding: 0 14px;
+    background: #0A1520; border: 1px solid var(--line); border-radius: 8px;
+    font-size: 13px; color: var(--gold);
+  }
+  .champ-readonly .lock { color: var(--faint); font-size: 12px; margin-left: auto; }
+
+  /* 类型二选一 */
+  .seg { display: flex; gap: 12px; }
+  .seg button {
+    flex: 1; height: 40px;
+    font-family: inherit; font-size: 13px; cursor: pointer;
+    background: #0A1520; border: 1px solid var(--line); border-radius: 8px;
+    color: var(--faint);
+    transition: border-color .15s, color .15s;
+  }
+  .seg button .seg-desc { display: block; font-size: 11px; color: var(--faint); margin-top: 2px; }
+  .seg button.on.pro { border-color: var(--cyan); color: var(--cyan); }
+  .seg button.on.con { border-color: var(--red); color: var(--red); }
+  .seg button.on .seg-desc { color: inherit; opacity: .75; }
+
+  /* 封面 */
+  .cover-drop {
+    position: relative;
+    width: 100%; height: 150px;
+    border: 1.5px dashed var(--line); border-radius: 10px;
+    background: #0A1520;
+    display: grid; place-items: center;
+    color: var(--faint); font-size: 12.5px; text-align: center;
+    cursor: pointer; overflow: hidden;
+    transition: border-color .15s;
+  }
+  .cover-drop:hover { border-color: var(--gold); }
+  .cover-drop img { width: 100%; height: 100%; object-fit: cover; }
+
+  .form-actions {
+    display: flex; gap: 12px; justify-content: flex-end;
+    margin-top: 28px; padding-top: 22px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .btn {
+    height: 40px; padding: 0 30px;
+    border-radius: 9px;
+    font-family: inherit; font-size: 14px; cursor: pointer;
+    text-decoration: none; display: inline-flex; align-items: center;
+  }
+  .btn-primary { background: var(--gold); border: none; color: #0A1428; font-weight: 700; }
+  .btn-primary:hover { background: var(--gold-bright); }
+  .btn-ghost { background: none; border: 1px solid var(--line); color: var(--mute); }
+  .btn-ghost:hover { border-color: var(--gold); color: var(--gold); }
+
+  .form-err {
+    display: none;
+    margin-top: 14px; font-size: 12.5px; color: var(--red);
+  }
+  .form-err.show { display: block; }
+
+  /* 提交成功态 */
+  .success { display: none; text-align: center; padding: 30px 20px 10px; }
+  .success.show { display: block; }
+  .success-ic {
+    width: 64px; height: 64px; margin: 0 auto 18px;
+    border-radius: 50%;
+    border: 2px solid var(--cyan); color: var(--cyan);
+    display: grid; place-items: center; font-size: 30px;
+  }
+  .success b { display: block; font-size: 18px; color: var(--gold-bright); }
+  .success p { margin-top: 8px; font-size: 13px; color: var(--faint); }
+  .success .form-actions { justify-content: center; border-top: 0; }
+
+  @media (max-width: 640px) {
+    .form-row.two { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <nav>
+      <a href="首页设计.html">首页</a>
+      <a href="英雄页面.html">英雄</a>
+      <a href="装备符文页面.html">装备&amp;符文</a>
+      <a href="关于页面.html">关于</a>
+    </nav>
+    <a class="avatar" href="我的页面.html">我</a>
+  </header>
+
+  <main>
+    <a class="back" href="对线页面.html">← 返回对线页</a>
+
+    <div class="page-head">
+      <div class="page-title">上传视频</div>
+      <div class="page-sub">分享该英雄的对线操作：选择类型并填写对位信息，方便其他玩家检索</div>
+    </div>
+
+    <section class="section">
+      <!-- 表单 -->
+      <form id="uploadForm" novalidate>
+        <!-- 视频文件 -->
+        <label class="drop" id="videoDrop">
+          <input type="file" id="videoFile" accept="video/*" hidden>
+          <div class="drop-ic">▶</div>
+          <div class="drop-text">点击选择，或将视频拖到此处</div>
+          <div class="drop-sub">支持 MP4 / WebM 等常见格式（原型演示，文件不会真正上传）</div>
+          <div class="drop-file" id="videoFileName"></div>
+        </label>
+
+        <!-- 标题 -->
+        <div class="form-row">
+          <label class="form-label" for="title">视频标题<span class="req">*</span></label>
+          <input class="inp" type="text" id="title" maxlength="50" placeholder="一句话概括这波操作，如：三级单杀细节">
+        </div>
+
+        <!-- 类型 + 对位英雄 -->
+        <div class="form-row two">
+          <div>
+            <label class="form-label">视频类型<span class="req">*</span></label>
+            <div class="seg" id="typeSeg">
+              <button type="button" class="on pro" data-type="pro">
+                操作你<span class="seg-desc">本英雄的对线打法</span>
+              </button>
+              <button type="button" class="con" data-type="con">
+                被操作<span class="seg-desc">对位英雄的打法</span>
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="form-label" for="vsChamp">对位英雄</label>
+            <input class="inp" type="text" id="vsChamp" placeholder="输入对位英雄名称">
+          </div>
+        </div>
+
+        <!-- 关联英雄（从对线页进入，固定为当前英雄） -->
+        <div class="form-row">
+          <label class="form-label">关联英雄</label>
+          <div class="champ-readonly">
+            <span>英雄名称占位</span>
+            <span class="lock">随对线页自动带入</span>
+          </div>
+        </div>
+
+        <!-- 封面 + 简介 -->
+        <div class="form-row two">
+          <div>
+            <label class="form-label">视频封面（选填）</label>
+            <label class="cover-drop" id="coverDrop">
+              <input type="file" id="coverFile" accept="image/*" hidden>
+              <span id="coverHint">点击上传封面<br>建议 16:9</span>
+              <img id="coverPreview" alt="封面预览" hidden>
+            </label>
+          </div>
+          <div>
+            <label class="form-label" for="desc">视频简介（选填）</label>
+            <textarea class="inp" id="desc" placeholder="补充打法思路、关键时间点等信息"></textarea>
+          </div>
+        </div>
+
+        <div class="form-err" id="formErr"></div>
+
+        <div class="form-actions">
+          <a class="btn btn-ghost" href="对线页面.html">取消</a>
+          <button class="btn btn-primary" type="submit">提交上传</button>
+        </div>
+      </form>
+
+      <!-- 成功态 -->
+      <div class="success" id="successBox">
+        <div class="success-ic">✓</div>
+        <b>提交成功</b>
+        <p>视频已进入审核流程（原型演示，未实际上传）。审核通过后将出现在该英雄的对线视频列表中。</p>
+        <div class="form-actions">
+          <a class="btn btn-ghost" href="对线页面.html">返回对线页</a>
+          <button class="btn btn-primary" type="button" id="againBtn">再传一个</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    var videoFile = null;
+    var videoType = 'pro';
+
+    var videoDrop = document.getElementById('videoDrop');
+    var videoInput = document.getElementById('videoFile');
+    var videoFileName = document.getElementById('videoFileName');
+
+    /* ============ 视频文件选择 / 拖拽 ============ */
+    function formatSize(bytes) {
+      if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+      return Math.max(1, Math.round(bytes / 1024)) + ' KB';
+    }
+    function pickVideo(file) {
+      if (!file) return;
+      if (file.type.indexOf('video/') !== 0) {
+        videoFile = null;
+        videoFileName.textContent = '请选择视频文件';
+        videoFileName.classList.add('err');
+        return;
+      }
+      videoFile = file;
+      videoFileName.classList.remove('err');
+      videoFileName.textContent = '已选择：' + file.name + '（' + formatSize(file.size) + '）';
+    }
+
+    videoInput.addEventListener('change', function () { pickVideo(this.files[0]); });
+    ['dragenter', 'dragover'].forEach(function (ev) {
+      videoDrop.addEventListener(ev, function (e) { e.preventDefault(); videoDrop.classList.add('over'); });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+      videoDrop.addEventListener(ev, function (e) { e.preventDefault(); videoDrop.classList.remove('over'); });
+    });
+    videoDrop.addEventListener('drop', function (e) {
+      pickVideo(e.dataTransfer.files[0]);
+    });
+
+    /* ============ 封面预览 ============ */
+    var coverInput = document.getElementById('coverFile');
+    var coverPreview = document.getElementById('coverPreview');
+    var coverHint = document.getElementById('coverHint');
+    coverInput.addEventListener('change', function () {
+      var file = this.files[0];
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function (ev) {
+        coverPreview.src = ev.target.result;
+        coverPreview.hidden = false;
+        coverHint.hidden = true;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    /* ============ 类型切换 ============ */
+    document.getElementById('typeSeg').addEventListener('click', function (e) {
+      var btn = e.target.closest('button');
+      if (!btn) return;
+      this.querySelectorAll('button').forEach(function (b) { b.classList.remove('on'); });
+      btn.classList.add('on');
+      videoType = btn.dataset.type;
+    });
+
+    /* ============ 提交校验 ============ */
+    var form = document.getElementById('uploadForm');
+    var errBox = document.getElementById('formErr');
+    var successBox = document.getElementById('successBox');
+
+    function showErr(msg) {
+      errBox.textContent = msg;
+      errBox.classList.add('show');
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      errBox.classList.remove('show');
+
+      var title = document.getElementById('title').value.trim();
+      if (!videoFile) return showErr('请先选择要上传的视频文件');
+      if (!title) return showErr('请填写视频标题');
+
+      /* 原型演示：无后端，直接展示成功态 */
+      form.style.display = 'none';
+      successBox.classList.add('show');
+    });
+
+    document.getElementById('againBtn').addEventListener('click', function () {
+      form.reset();
+      videoFile = null;
+      videoFileName.textContent = '';
+      coverPreview.src = '';
+      coverPreview.hidden = true;
+      coverHint.hidden = false;
+      document.querySelectorAll('#typeSeg button').forEach(function (b, i) {
+        b.classList.toggle('on', i === 0);
+      });
+      errBox.classList.remove('show');
+      successBox.classList.remove('show');
+      form.style.display = '';
+    });
+  </script>
+
+</body>
+</html>
