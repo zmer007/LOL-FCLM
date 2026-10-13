@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>关于 · 路边联盟</title>
+<style>
+  :root {
+    --bg: #070E16;
+    --panel: #0E1C2C;
+    --panel-2: #132438;
+    --line: #22394F;
+    --line-soft: #1B2E42;
+    --gold: #C8AA6E;
+    --gold-bright: #F0E6D2;
+    --cyan: #0AC8B9;
+    --mute: #8FA3B8;
+    --faint: #5F7387;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--gold-bright);
+    min-height: 100vh;
+  }
+
+  /* ============ 顶部导航（与其他页一致） ============ */
+  header {
+    height: 62px;
+    padding: 0 40px;
+    display: flex; align-items: center; gap: 36px;
+    border-bottom: 1px solid var(--line-soft);
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(7,14,22,.92);
+  }
+  nav { display: flex; gap: 28px; font-size: 14px; }
+  nav a { color: var(--mute); text-decoration: none; cursor: pointer; }
+  nav a.on { color: var(--gold-bright); }
+  .avatar {
+    margin-left: auto;
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--gold);
+    background: var(--panel); color: var(--gold);
+    display: grid; place-items: center; font-size: 13px;
+    cursor: pointer; text-decoration: none;
+  }
+
+  main { max-width: 760px; margin: 0 auto; padding: 0 24px 60px; }
+
+  .section {
+    background: var(--panel);
+    border: 1px solid var(--line-soft);
+    border-radius: 16px;
+    padding: 24px 28px 26px;
+    margin-bottom: 20px;
+  }
+  .section-title {
+    font-size: 16px; font-weight: 700; color: var(--gold-bright);
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 16px;
+  }
+  .section-title::before {
+    content: ""; width: 3px; height: 15px; background: var(--gold); border-radius: 2px;
+  }
+  .section p {
+    font-size: 13.5px; line-height: 1.9; color: var(--mute);
+  }
+
+  /* 版本信息 */
+  .kv { display: flex; justify-content: space-between; padding: 11px 2px; font-size: 13px; }
+  .kv + .kv { border-top: 1px solid var(--line-soft); }
+  .kv span:first-child { color: var(--faint); }
+  .kv span:last-child { color: var(--mute); }
+
+  .disclaimer {
+    margin-top: 26px;
+    text-align: center;
+    font-size: 12px; color: var(--faint); line-height: 1.9;
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <nav>
+      <a href="首页设计.html">首页</a>
+      <a href="英雄页面.html">英雄</a>
+      <a href="装备符文页面.html">装备&amp;符文</a>
+      <a class="on">关于</a>
+    </nav>
+    <a class="avatar" href="我的页面.html">我</a>
+  </header>
+
+  <main>
+    <section class="section" style="margin-top:26px">
+      <div class="section-title">关于路边联盟</div>
+      <p>
+        路边联盟是一个英雄联盟对线技巧学习站点的 UI 原型。你可以在首页直接搜索英雄，查看该英雄的推荐出装、符文与对线视频；
+        也可以在「英雄」中浏览全英雄的基本资料，在「装备&符文」中拖选制作自己的推荐装备方案，或在个人页管理收藏。
+      </p>
+    </section>
+
+    <section class="section">
+      <div class="section-title">版本信息</div>
+      <div class="kv"><span>版本</span><span>UI 原型 v0.1（占位数据）</span></div>
+      <div class="kv"><span>形态</span><span>纯静态页面，Chrome 离线打开</span></div>
+      <div class="kv"><span>更新日期</span><span>2026-10-13</span></div>
+    </section>
+
+    <div class="disclaimer">
+      本站为学习交流用途的非官方原型，不包含正式游戏数据。<br>
+      英雄联盟及相关名称、形象的权利归其权利人所有。
+    </div>
+  </main>
+
+</body>
+</html>
