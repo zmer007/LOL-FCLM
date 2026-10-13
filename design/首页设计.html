@@ -30,8 +30,8 @@
     border-bottom: 1px solid var(--line);
   }
   nav { display: flex; gap: 28px; font-size: 14px; }
-  nav span { color: #8FA3B8; cursor: pointer; }
-  nav span.on { color: var(--gold-bright); }
+  nav a, nav span { color: #8FA3B8; cursor: pointer; text-decoration: none; }
+  nav a.on, nav span.on { color: var(--gold-bright); }
   .avatar {
     margin-left: auto;
     width: 36px; height: 36px; border-radius: 50%;
@@ -93,7 +93,7 @@
   <header>
     <nav>
       <span class="on">首页</span>
-      <span>英雄</span>
+      <a href="英雄页面.html">英雄</a>
       <span>装备</span>
       <span>符文</span>
     </nav>
@@ -116,7 +116,7 @@
       <span><i>联盟</i></span>
     </div>
 
-    <form class="search" action="英雄页面.html">
+    <form class="search" action="对线页面.html" method="get">
       <span class="icon">🔍</span>
       <input type="text" name="champion" placeholder="输入英雄名称" autofocus>
       <button type="submit">进入</button>
