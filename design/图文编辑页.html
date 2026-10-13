@@ -70,7 +70,6 @@
   /* ============ 表单 ============ */
   .form-row { margin-top: 22px; }
   .form-row:first-child { margin-top: 0; }
-  .form-row.two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   .form-label {
     display: block; font-size: 13px; color: var(--mute);
     margin-bottom: 9px;
@@ -89,28 +88,22 @@
     resize: vertical; line-height: 1.9;
   }
 
-  /* 关联英雄（只读） */
-  .champ-readonly {
-    height: 40px; display: flex; align-items: center; gap: 8px;
-    padding: 0 14px;
-    background: #0A1520; border: 1px solid var(--line); border-radius: 8px;
-    font-size: 13px; color: var(--gold);
+  /* 对位英雄：搜索候选下拉 */
+  .champ-picker { position: relative; }
+  .champ-suggest {
+    display: none;
+    position: absolute; left: 0; right: 0; top: calc(100% + 6px);
+    max-height: 220px; overflow-y: auto; z-index: 20;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
   }
-  .champ-readonly .lock { color: var(--faint); font-size: 12px; margin-left: auto; }
-
-  /* 类型二选一 */
-  .seg { display: flex; gap: 12px; }
-  .seg button {
-    flex: 1; height: 40px;
-    font-family: inherit; font-size: 13px; cursor: pointer;
-    background: #0A1520; border: 1px solid var(--line); border-radius: 8px;
-    color: var(--faint);
-    transition: border-color .15s, color .15s;
+  .champ-suggest.show { display: block; }
+  .champ-opt {
+    padding: 10px 14px; font-size: 13px; color: var(--mute);
+    cursor: pointer;
   }
-  .seg button .seg-desc { display: block; font-size: 11px; color: var(--faint); margin-top: 2px; }
-  .seg button.on.pro { border-color: var(--cyan); color: var(--cyan); }
-  .seg button.on.con { border-color: var(--red); color: var(--red); }
-  .seg button.on .seg-desc { color: inherit; opacity: .75; }
+  .champ-opt:hover { background: var(--panel-2); color: var(--gold-bright); }
+  .champ-empty { padding: 10px 14px; font-size: 12.5px; color: var(--faint); }
 
   /* 配图：缩略图列表 + 添加按钮 */
   .img-list { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -176,9 +169,6 @@
   .success p { margin-top: 8px; font-size: 13px; color: var(--faint); }
   .success .form-actions { justify-content: center; border-top: 0; }
 
-  @media (max-width: 640px) {
-    .form-row.two { grid-template-columns: 1fr; }
-  }
 </style>
 </head>
 <body>
@@ -210,31 +200,12 @@
           <input class="inp" type="text" id="title" maxlength="50" placeholder="一句话概括这篇图文，如：对线期控线与游走时机详解">
         </div>
 
-        <!-- 类型 + 对位英雄 -->
-        <div class="form-row two">
-          <div>
-            <label class="form-label">图文类型<span class="req">*</span></label>
-            <div class="seg" id="typeSeg">
-              <button type="button" class="on pro" data-type="pro">
-                本英雄打法<span class="seg-desc">以该英雄为视角</span>
-              </button>
-              <button type="button" class="con" data-type="con">
-                对位英雄打法<span class="seg-desc">以对位英雄为视角</span>
-              </button>
-            </div>
-          </div>
-          <div>
-            <label class="form-label" for="vsChamp">对位英雄</label>
-            <input class="inp" type="text" id="vsChamp" placeholder="输入对位英雄名称">
-          </div>
-        </div>
-
-        <!-- 关联英雄（从对线页进入，固定为当前英雄） -->
+        <!-- 对位英雄（必选，从候选中搜索选择） -->
         <div class="form-row">
-          <label class="form-label">关联英雄</label>
-          <div class="champ-readonly">
-            <span>英雄名称占位</span>
-            <span class="lock">随对线页自动带入</span>
+          <label class="form-label" for="vsChamp">对位英雄<span class="req">*</span></label>
+          <div class="champ-picker" id="champPicker">
+            <input class="inp" type="text" id="vsChamp" autocomplete="off" placeholder="输入英雄名称，从候选中选择">
+            <div class="champ-suggest" id="champSuggest"></div>
           </div>
         </div>
 
@@ -277,7 +248,48 @@
   </main>
 
   <script>
-    var articleType = 'pro';
+    /* ============ 对位英雄：搜索候选（原型占位名单，非真实英雄数据） ============ */
+    var CHAMPS = [];
+    for (var c = 1; c <= 12; c++) CHAMPS.push('英雄名称占位 ' + c);
+
+    var champInput = document.getElementById('vsChamp');
+    var champSuggest = document.getElementById('champSuggest');
+    var champPicked = '';   // 必须从候选中选中才算有效
+
+    function renderSuggest(kw) {
+      var list = CHAMPS.filter(function (name) {
+        return name.indexOf(kw) !== -1;
+      });
+      var html;
+      if (!list.length) {
+        html = '<div class="champ-empty">无匹配英雄，请更换关键词</div>';
+      } else {
+        html = list.map(function (name) {
+          return '<div class="champ-opt" data-name="' + name + '">' + name + '</div>';
+        }).join('');
+      }
+      champSuggest.innerHTML = html;
+      champSuggest.classList.add('show');
+    }
+
+    champInput.addEventListener('focus', function () { renderSuggest(this.value.trim()); });
+    champInput.addEventListener('input', function () {
+      champPicked = '';   // 手动编辑后，之前的选中失效
+      renderSuggest(this.value.trim());
+    });
+    champInput.addEventListener('blur', function () {
+      // 延迟关闭，让候选项的 mousedown/click 先触发
+      setTimeout(function () { champSuggest.classList.remove('show'); }, 150);
+    });
+
+    champSuggest.addEventListener('mousedown', function (e) {
+      var opt = e.target.closest('.champ-opt');
+      if (!opt) return;
+      e.preventDefault();
+      champPicked = opt.dataset.name;
+      champInput.value = champPicked;
+      champSuggest.classList.remove('show');
+    });
 
     /* ============ 配图：多选 + 缩略图预览 + 删除 ============ */
     var imgInput = document.getElementById('imgInput');
@@ -306,15 +318,6 @@
       if (rm) rm.closest('.img-item').remove();
     });
 
-    /* ============ 类型切换 ============ */
-    document.getElementById('typeSeg').addEventListener('click', function (e) {
-      var btn = e.target.closest('button');
-      if (!btn) return;
-      this.querySelectorAll('button').forEach(function (b) { b.classList.remove('on'); });
-      btn.classList.add('on');
-      articleType = btn.dataset.type;
-    });
-
     /* ============ 提交校验 ============ */
     var form = document.getElementById('publishForm');
     var errBox = document.getElementById('formErr');
@@ -332,6 +335,10 @@
       var title = document.getElementById('title').value.trim();
       var content = document.getElementById('content').value.trim();
       if (!title) return showErr('请填写图文标题');
+      if (!champInput.value.trim()) return showErr('请选择对位英雄');
+      if (!champPicked || champInput.value.trim() !== champPicked) {
+        return showErr('请从候选列表中选择对位英雄');
+      }
       if (!content) return showErr('请填写正文内容');
 
       /* 原型演示：无后端，直接展示成功态 */
@@ -342,9 +349,8 @@
     document.getElementById('againBtn').addEventListener('click', function () {
       form.reset();
       imgList.querySelectorAll('.img-item').forEach(function (el) { el.remove(); });
-      document.querySelectorAll('#typeSeg button').forEach(function (b, i) {
-        b.classList.toggle('on', i === 0);
-      });
+      champPicked = '';
+      champSuggest.classList.remove('show');
       errBox.classList.remove('show');
       successBox.classList.remove('show');
       form.style.display = '';
