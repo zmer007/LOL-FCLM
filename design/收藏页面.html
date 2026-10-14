@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的收藏 · 路边联盟</title>
+<style>
+  :root {
+    --bg: #070E16;
+    --panel: #0E1C2C;
+    --panel-2: #132438;
+    --line: #22394F;
+    --line-soft: #1B2E42;
+    --gold: #C8AA6E;
+    --gold-bright: #F0E6D2;
+    --cyan: #0AC8B9;
+    --red: #E84057;
+    --mute: #8FA3B8;
+    --faint: #5F7387;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--gold-bright);
+    min-height: 100vh;
+  }
+
+  /* 顶部导航（与其他页一致） */
+  header {
+    height: 62px;
+    padding: 0 40px;
+    display: flex; align-items: center; gap: 36px;
+    border-bottom: 1px solid var(--line-soft);
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(7,14,22,.92);
+  }
+  nav { display: flex; gap: 28px; font-size: 14px; }
+  nav a { color: var(--mute); text-decoration: none; cursor: pointer; }
+  .avatar {
+    margin-left: auto;
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--gold);
+    background: var(--panel); color: var(--gold);
+    display: grid; place-items: center; font-size: 13px;
+    text-decoration: none;
+  }
+
+  main { max-width: 900px; margin: 0 auto; padding: 0 24px 60px; }
+  .back {
+    display: inline-block; margin-top: 24px;
+    font-size: 13px; color: var(--mute); text-decoration: none;
+  }
+  .back:hover { color: var(--gold); }
+
+  .section {
+    margin-top: 16px;
+    background: var(--panel);
+    border: 1px solid var(--line-soft);
+    border-radius: 16px;
+    padding: 24px 28px 28px;
+  }
+  .section-title {
+    font-size: 16px; font-weight: 700; color: var(--gold-bright);
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 18px;
+  }
+  .section-title::before {
+    content: ""; width: 3px; height: 15px; background: var(--gold); border-radius: 2px;
+  }
+
+  /* 分类 tab */
+  .subtabs { display: flex; gap: 8px; margin-bottom: 22px; }
+  .subtab {
+    font-family: inherit; font-size: 12.5px; cursor: pointer;
+    background: none; border: 1px solid var(--line); border-radius: 999px;
+    color: var(--faint); padding: 5px 18px;
+  }
+  .subtab:hover { color: var(--mute); }
+  .subtab.on { border-color: var(--gold); color: var(--gold); }
+  .subpane { display: none; }
+  .subpane.on { display: block; }
+
+  /* 英雄网格 */
+  .fav-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 22px 14px;
+  }
+  .fav-champ { text-align: center; text-decoration: none; color: inherit; cursor: pointer; }
+  .fav-portrait {
+    width: 72px; height: 72px; margin: 0 auto;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: linear-gradient(135deg, #1C3350, #132438);
+    display: grid; place-items: center;
+    font-size: 11px; color: var(--faint);
+    transition: border-color .15s, transform .15s;
+  }
+  .fav-champ:hover .fav-portrait { border-color: var(--gold); transform: translateY(-2px); }
+  .fav-name {
+    margin-top: 8px; font-size: 12.5px; color: var(--gold-bright);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* 视频 / 图文行列表 */
+  .vrow {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 4px;
+    border-top: 1px solid var(--line-soft);
+    text-decoration: none; color: inherit; cursor: pointer;
+  }
+  .vrow:first-child { border-top: 0; }
+  .vrow:hover .vrow-title { color: var(--gold); }
+  .vrow-thumb {
+    position: relative;
+    width: 110px; height: 62px; flex-shrink: 0;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: #0A1520;
+    display: grid; place-items: center;
+    color: var(--faint);
+  }
+  .vrow-thumb.pro { border-color: rgba(10,200,185,.5); }
+  .vrow-thumb.con { border-color: rgba(232,64,87,.5); }
+  .vrow-thumb .play {
+    width: 0; height: 0;
+    border-left: 12px solid var(--faint);
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+  }
+  .vrow:hover .play { border-left-color: var(--gold); }
+  .vrow-badge {
+    position: absolute; left: 0; top: 0;
+    font-size: 10px; font-weight: 700; line-height: 1;
+    padding: 4px 8px; border-radius: 8px 0 6px 0;
+    color: #04141A;
+  }
+  .vrow-badge.pro { background: var(--cyan); }
+  .vrow-badge.con { background: var(--red); color: var(--gold-bright); }
+  .vrow-imgcount {
+    position: absolute; right: 4px; bottom: 3px;
+    font-size: 10px; color: var(--gold-bright);
+    background: rgba(7,14,22,.75); border-radius: 4px;
+    padding: 1px 6px;
+  }
+  .vrow-body { flex: 1; min-width: 0; }
+  .vrow-title {
+    font-size: 13.5px; color: var(--gold-bright);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    transition: color .15s;
+  }
+  .vrow-meta { margin-top: 5px; font-size: 11.5px; color: var(--faint); }
+
+  .empty-note { text-align: center; color: var(--faint); font-size: 13px; padding: 30px 0; }
+</style>
+</head>
+<body>
+
+  <header>
+    <nav>
+      <a href="首页设计.html">首页</a>
+      <a href="关于页面.html">关于</a>
+    </nav>
+    <a class="avatar" href="我的页面.html">我</a>
+  </header>
+
+  <main>
+    <a class="back" href="我的页面.html">← 返回我的页面</a>
+
+    <section class="section">
+      <div class="section-title">我的收藏</div>
+      <div class="subtabs" id="favTabs">
+        <button class="subtab on" data-pane="champ">英雄</button>
+        <button class="subtab" data-pane="video">视频</button>
+        <button class="subtab" data-pane="article">图文</button>
+      </div>
+
+      <div class="subpane on" id="pane-champ">
+        <div class="fav-grid" id="favChampGrid"></div>
+      </div>
+      <div class="subpane" id="pane-video"><div id="favVideoList"></div></div>
+      <div class="subpane" id="pane-article"><div id="favArticleList"></div></div>
+    </section>
+  </main>
+
+  <script>
+    var ARTICLE_ICON =
+      '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+      '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>' +
+      '<path d="M21 15l-5-5L5 21"/></svg>';
+
+    /* 收藏英雄（占位）：点击进入对应英雄的对线页 */
+    var favChamps = [];
+    for (var i = 1; i <= 6; i++) favChamps.push('英雄 ' + i);
+    document.getElementById('favChampGrid').innerHTML = favChamps.map(function (name) {
+      return '<a class="fav-champ" href="对线页面.html?from=fav&tab=champ">' +
+               '<div class="fav-portrait">英雄图片</div>' +
+               '<div class="fav-name">' + name + '</div>' +
+             '</a>';
+    }).join('');
+
+    /* 收藏视频（占位）：点击进入视频详情页 */
+    var favVideos = [
+      { title: '收藏视频标题占位 1', meta: 'UP主占位 · 播放量占位', type: 'pro' },
+      { title: '收藏视频标题占位 2', meta: 'UP主占位 · 播放量占位', type: 'con' },
+      { title: '收藏视频标题占位 3', meta: 'UP主占位 · 播放量占位', type: 'pro' },
+      { title: '收藏视频标题占位 4', meta: 'UP主占位 · 播放量占位', type: 'pro' },
+      { title: '收藏视频标题占位 5', meta: 'UP主占位 · 播放量占位', type: 'con' },
+      { title: '收藏视频标题占位 6', meta: 'UP主占位 · 播放量占位', type: 'pro' },
+      { title: '收藏视频标题占位 7', meta: 'UP主占位 · 播放量占位', type: 'con' },
+      { title: '收藏视频标题占位 8', meta: 'UP主占位 · 播放量占位', type: 'pro' }
+    ];
+    document.getElementById('favVideoList').innerHTML = favVideos.map(function (v) {
+      return '<a class="vrow" href="视频详情页.html?from=fav&tab=video">' +
+        '<div class="vrow-thumb ' + v.type + '">' +
+          '<span class="play"></span>' +
+          '<span class="vrow-badge ' + v.type + '">' + (v.type === 'pro' ? '本英雄' : '对位英雄') + '</span>' +
+        '</div>' +
+        '<div class="vrow-body">' +
+          '<div class="vrow-title">' + v.title + '</div>' +
+          '<div class="vrow-meta">' + v.meta + '</div>' +
+        '</div>' +
+      '</a>';
+    }).join('');
+
+    /* 收藏图文（占位）：点击进入图文详情页 */
+    var favArticles = [
+      { title: '收藏图文标题占位 1', meta: '作者占位 · 阅读量占位', type: 'pro', imgs: 5 },
+      { title: '收藏图文标题占位 2', meta: '作者占位 · 阅读量占位', type: 'con', imgs: 3 },
+      { title: '收藏图文标题占位 3', meta: '作者占位 · 阅读量占位', type: 'pro', imgs: 8 },
+      { title: '收藏图文标题占位 4', meta: '作者占位 · 阅读量占位', type: 'con', imgs: 2 }
+    ];
+    document.getElementById('favArticleList').innerHTML = favArticles.map(function (a) {
+      return '<a class="vrow" href="图文详情页.html?from=fav&tab=article">' +
+        '<div class="vrow-thumb ' + a.type + '">' +
+          ARTICLE_ICON +
+          '<span class="vrow-badge ' + a.type + '">' + (a.type === 'pro' ? '本英雄' : '对位英雄') + '</span>' +
+          '<span class="vrow-imgcount">' + a.imgs + ' 图</span>' +
+        '</div>' +
+        '<div class="vrow-body">' +
+          '<div class="vrow-title">' + a.title + '</div>' +
+          '<div class="vrow-meta">' + a.meta + '</div>' +
+        '</div>' +
+      '</a>';
+    }).join('');
+
+    /* tab 切换 */
+    var favTabsEl = document.getElementById('favTabs');
+    function activatePane(pane) {
+      favTabsEl.querySelectorAll('.subtab').forEach(function (b) {
+        b.classList.toggle('on', b.dataset.pane === pane);
+      });
+      document.querySelectorAll('.subpane').forEach(function (p) {
+        p.classList.toggle('on', p.id === 'pane-' + pane);
+      });
+    }
+    favTabsEl.addEventListener('click', function (e) {
+      var btn = e.target.closest('.subtab');
+      if (!btn) return;
+      activatePane(btn.dataset.pane);
+    });
+
+    /* 从详情页返回时，按 ?tab= 恢复对应分类 */
+    (function () {
+      var tab = new URLSearchParams(location.search).get('tab');
+      if (tab === 'video' || tab === 'article' || tab === 'champ') activatePane(tab);
+    })();
+  </script>
+
+</body>
+</html>

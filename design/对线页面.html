@@ -307,6 +307,17 @@
 
   <main>
     <a class="back" href="首页设计.html">← 返回首页</a>
+    <script>
+      /* 从收藏页进入时，返回收藏页（英雄分类） */
+      (function () {
+        var qs = new URLSearchParams(location.search);
+        if (qs.get('from') === 'fav') {
+          var back = document.querySelector('.back');
+          back.href = '收藏页面.html?tab=' + (qs.get('tab') || 'champ');
+          back.textContent = '← 返回收藏';
+        }
+      })();
+    </script>
 
     <!-- 英雄横幅 -->
     <section class="hero">

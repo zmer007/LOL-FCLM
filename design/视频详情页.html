@@ -215,6 +215,17 @@
 
   <main>
     <a class="back" href="对线页面.html">← 返回对线页</a>
+    <script>
+      /* 从收藏页进入时，返回收藏页并停留原分类 */
+      (function () {
+        var qs = new URLSearchParams(location.search);
+        if (qs.get('from') === 'fav') {
+          var back = document.querySelector('.back');
+          back.href = '收藏页面.html?tab=' + (qs.get('tab') || 'video');
+          back.textContent = '← 返回收藏';
+        }
+      })();
+    </script>
 
     <div class="detail-grid">
       <!-- 左侧主体 -->
