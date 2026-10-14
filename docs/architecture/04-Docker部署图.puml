@@ -1,0 +1,44 @@
+@startuml Docker部署图
+title Docker Compose 部署视图（端口 / 镜像 / 卷 / 网络）
+skinparam shadowing false
+skinparam defaultFontName "PingFang SC"
+skinparam ArrowColor #5A6B7E
+skinparam NodeBackgroundColor #F5F7FA
+skinparam NodeBorderColor #22394F
+skinparam DatabaseBackgroundColor #F5F7FA
+skinparam DatabaseBorderColor #22394F
+
+node "Docker 宿主机（云服务器）" as host {
+
+  node "frontend\n镜像: 自建(node:20-alpine 构建 → nginx:alpine)\n端口: 80:80 / 443:443" as frontend
+  node "api\n镜像: golang:1.26-alpine 多阶段构建\n端口: 9090（仅内网）" as api
+  node "worker（二期）\n镜像: 自建(alpine + apk add ffmpeg)\n无对外端口" as worker
+  database "mysql\n镜像: mysql:9.7（LTS）\n端口: 3306（仅内网）\n环境: MYSQL_DATABASE / 密码" as mysql
+  database "valkey\n镜像: valkey/valkey:8-alpine\n(Redis 协议兼容, BSD-3)\n端口: 6379（仅内网）" as valkey
+
+  folder "named volume: lol_media\n/api 与 /worker 与 /nginx 三方共享" as vol_media
+  folder "named volume: mysql_data" as vol_mysql
+  folder "named volume: valkey_data" as vol_redis
+}
+
+actor "用户浏览器" as user
+
+user --> frontend : :80 / :443
+frontend --> api : compose 内网 :9090
+frontend --> vol_media : /media 只读映射
+api --> mysql
+api --> valkey
+api --> vol_media : 原片 / 图片读写
+worker --> valkey : 领取转码任务
+worker --> vol_media : 成片 / 封面读写
+mysql --> vol_mysql
+valkey --> vol_redis
+
+note bottom of host
+  统一 docker network：lol-net（bridge）
+  仅 frontend 暴露宿主机端口，其余服务不对公网开放
+  配置全部来自 .env（DB DSN / JWT_SECRET / MEDIA_ROOT）
+  启动：docker compose up -d
+end note
+
+@enduml

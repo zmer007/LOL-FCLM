@@ -1,0 +1,59 @@
+@startuml 整体架构
+title 路边联盟 - 整体架构图（容器级前后端分离）
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName "PingFang SC"
+skinparam ArrowColor #5A6B7E
+skinparam NodeBackgroundColor #F5F7FA
+skinparam NodeBorderColor #22394F
+skinparam DatabaseBackgroundColor #F5F7FA
+skinparam DatabaseBorderColor #22394F
+skinparam FolderBackgroundColor #FFF8E8
+skinparam FolderBorderColor #C8AA6E
+
+actor "用户" as user
+
+node "客户端 · 浏览器" as client {
+  component "Vue 3 SPA\n(Vite 构建静态产物)" as spa
+}
+
+node "服务端 · Docker Compose" as docker {
+
+  node "frontend 容器\nnginx:alpine :80" as nginx {
+    component "静态资源托管\nSPA 路由回退" as static
+    component "反向代理\n/api → api:9090\n/media → 共享卷" as proxy
+  }
+
+  node "api 容器\nGo 1.26 + Gin :9090" as api {
+    component "REST 接口 / JWT 鉴权\n业务逻辑 / 文件接收" as api_core
+  }
+
+  node "worker 容器（二期）\nGo + ffmpeg" as worker {
+    component "异步转码\n多清晰度 / HLS 切片\n封面抽帧合成" as transcode
+  }
+
+  database "MySQL 9.7 LTS\n业务数据" as mysql
+  database "Valkey 8\n(Redis 协议兼容, BSD-3)\n缓存 / 转码队列" as redis
+  folder "media volume\n原片 / 成片 / 图片 / 封面" as media
+}
+
+user --> nginx : HTTP/HTTPS 访问
+spa -[hidden]- static
+
+nginx --> api : /api/** 内网反代
+nginx --> media : /media/** 直读文件
+
+api --> mysql : GORM 读写
+api --> redis : 缓存 / 任务入队
+api --> media : multipart 原片落盘
+
+api ..> worker : 转码任务（Redis 队列）
+worker --> redis : 轮询领取任务
+worker --> media : 写成片与封面
+
+note right of media
+  所有容器挂载同一 Docker Volume
+  日后可整体替换为 S3 / OSS
+end note
+
+@enduml

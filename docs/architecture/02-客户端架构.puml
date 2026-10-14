@@ -1,0 +1,75 @@
+@startuml 客户端架构
+title 客户端子图 - Vue 3 前端内部结构
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName "PingFang SC"
+skinparam ArrowColor #5A6B7E
+skinparam ComponentBackgroundColor #F5F7FA
+skinparam ComponentBorderColor #22394F
+skinparam PackageBackgroundColor #FAFBFC
+skinparam PackageBorderColor #C8AA6E
+
+package "浏览器（客户端）" {
+
+  package "Vue 3 + TypeScript + Vite 应用" {
+
+    package "路由层 Vue Router（history 模式）" as router {
+      component "/                首页" as r_home
+      component "/heroes          英雄列表/资料" as r_hero
+      component "/matchup/:heroId 对线页" as r_match
+      component "/videos/:id  /articles/:id" as r_detail
+      component "/upload/video  /upload/article" as r_upload
+      component "/me  /me/favorites  /about" as r_me
+    }
+
+    package "视图层 views（现有 12 页 1:1 迁移）" as views {
+    }
+
+    package "组件层 components（全局唯一一份）" as comps {
+      component "AppNav 导航栏" as c_nav
+      component "ContentCard 视频/图文卡片" as c_card
+      component "CommentList 嵌套评论" as c_comment
+      component "BuildRuneEditor\n装备符文编辑器" as c_editor
+      component "ItemPickerModal\n加号弹素材库" as c_picker
+      component "Pagination / EmptyState" as c_common
+    }
+
+    package "状态层 Pinia" as stores {
+      component "user store\n登录态 / JWT" as s_user
+      component "favorite store\n收藏三分类" as s_fav
+    }
+
+    package "接口层 api/" as api {
+      component "axios 实例\n请求注入 JWT\n401 统一跳登录" as axios
+      component "auth / hero / matchup\nvideo / article / comment\nfavorite / me / admin" as modules
+    }
+
+    component "<video> / hls.js（二期）\n仅播放器 UI 与交互" as player
+  }
+
+  component "浏览器内核 + GPU\nH.264/H.265 硬件解码\n（非业务代码）" as decoder #E6F6F4
+}
+
+cloud "服务端 Go API" as backend #EEF3FA
+
+router --> views : 渲染对应视图
+views --> comps : 复用组件
+views --> stores : 读写状态
+views --> api : fetch 数据
+stores --> api
+axios --> modules
+modules --> backend : /api/** REST/JSON（同源经 Nginx）
+
+views --> player : 给出播放地址
+player --> decoder : 浏览器底层解码渲染
+
+note bottom of c_editor
+  装备五分区：出门 2 / 召唤师 2 / 中期 5 / 核心 6 / 神装 7
+  符文：主副系 + 属性碎片，对线页/编辑页/制作器共用
+end note
+
+note bottom of decoder
+  压缩转码不在前端；解码由浏览器/显卡完成
+end note
+
+@enduml

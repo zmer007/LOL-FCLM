@@ -1,0 +1,15 @@
+// Package model 定义 GORM 数据模型。
+package model
+
+import "time"
+
+// User 站点用户。Role 取值：user / admin。
+type User struct {
+	ID           int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	Username     string    `gorm:"size:32;uniqueIndex;not null" json:"username"`
+	PasswordHash string    `gorm:"size:100;not null" json:"-"`
+	Avatar       string    `gorm:"size:255" json:"avatar"`
+	Role         string    `gorm:"size:16;not null;default:user;index" json:"role"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+}

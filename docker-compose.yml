@@ -1,0 +1,110 @@
+name: lol
+
+services:
+  # ---------- 前端：Vite 构建产物 + Nginx（唯一对宿主机暴露端口） ----------
+  frontend:
+    build:
+      context: ./frontend
+    image: lol-frontend:latest
+    ports:
+      - "80:80"
+    volumes:
+      - lol_media:/data/media:ro   # Nginx 直读用户上传文件（/media/）
+    depends_on:
+      - api
+    networks:
+      - lol-net
+    restart: unless-stopped
+
+  # ---------- 后端 API：Go 1.22 + Gin ----------
+  api:
+    build:
+      context: ./backend
+      target: api
+    image: lol-api:latest
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      APP_ADDR: ":9090"
+      DB_DSN: "${DB_USER}:${DB_PASSWORD}@tcp(mysql:3306)/${DB_NAME}?charset=utf8mb4&parseTime=true&loc=Local"
+      VALKEY_ADDR: "valkey:6379"
+      MEDIA_ROOT: "/data/media"
+    volumes:
+      - lol_media:/data/media
+    depends_on:
+      mysql:
+        condition: service_healthy
+      valkey:
+        condition: service_started
+    networks:
+      - lol-net
+    restart: unless-stopped
+
+  # ---------- 转码 worker（二期；默认不启动，需要时: docker compose --profile worker up -d） ----------
+  worker:
+    build:
+      context: ./backend
+      target: worker
+    image: lol-worker:latest
+    profiles:
+      - worker
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DB_DSN: "${DB_USER}:${DB_PASSWORD}@tcp(mysql:3306)/${DB_NAME}?charset=utf8mb4&parseTime=true&loc=Local"
+      VALKEY_ADDR: "valkey:6379"
+      MEDIA_ROOT: "/data/media"
+    volumes:
+      - lol_media:/data/media
+    depends_on:
+      mysql:
+        condition: service_healthy
+      valkey:
+        condition: service_started
+    networks:
+      - lol-net
+    restart: unless-stopped
+
+  # ---------- 数据库：MySQL 9.7 LTS ----------
+  mysql:
+    image: mysql:9.7
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_DATABASE: "${DB_NAME}"
+      MYSQL_USER: "${DB_USER}"
+      MYSQL_PASSWORD: "${DB_PASSWORD}"
+      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+      TZ: "Asia/Shanghai"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - lol-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ---------- 缓存 / 队列：Valkey 8（Redis 协议兼容，BSD-3 许可） ----------
+  valkey:
+    image: valkey/valkey:8-alpine
+    command: ["valkey-server", "--save", "60", "1", "--appendonly", "yes"]
+    volumes:
+      - valkey_data:/data
+    networks:
+      - lol-net
+    restart: unless-stopped
+
+networks:
+  lol-net:
+    driver: bridge
+
+volumes:
+  lol_media:
+  mysql_data:
+  valkey_data:

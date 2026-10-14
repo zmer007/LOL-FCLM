@@ -1,0 +1,27 @@
+/* 设计稿 design/ 中的暗色金色设计变量，逐页迁移期间以本文件为唯一样式来源 */
+:root {
+  --bg: #070e16;
+  --panel: #0e1c2c;
+  --panel-2: #132438;
+  --line: #22394f;
+  --line-soft: #1b2e42;
+  --gold: #c8aa6e;
+  --gold-bright: #f0e6d2;
+  --cyan: #0ac8b9;
+  --red: #e84057;
+  --mute: #8fa3b8;
+  --faint: #5f7387;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--gold-bright);
+  min-height: 100vh;
+}

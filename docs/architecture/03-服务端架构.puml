@@ -1,0 +1,102 @@
+@startuml 服务端架构
+title 服务端子图 - Go API 分层与 worker
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontName "PingFang SC"
+skinparam ArrowColor #5A6B7E
+skinparam ComponentBackgroundColor #F5F7FA
+skinparam ComponentBorderColor #22394F
+skinparam PackageBackgroundColor #FAFBFC
+skinparam PackageBorderColor #C8AA6E
+
+cloud "Nginx（frontend 容器）" as nginx #EEF3FA
+
+package "api 容器（Go 1.26 + Gin :9090）" {
+
+  package "中间件链 middleware" as mw {
+    component "Recovery / 访问日志" as mw_log
+    component "CORS（仅本地开发）" as mw_cors
+    component "JWT 认证\nrole 校验(user/admin)" as mw_jwt
+  }
+
+  package "处理器层 handler（按模块分文件）" as handler {
+    component "auth_handler" as h_auth
+    component "hero / matchup_handler" as h_hero
+    component "video / article_handler" as h_content
+    component "comment_handler" as h_comment
+    component "favorite / like_handler" as h_fav
+    component "me / admin_handler" as h_me
+  }
+
+  package "业务层 service" as service {
+    component "AuthService\nbcrypt + 签发 JWT" as s_auth
+    component "HeroService / MatchupService" as s_hero
+    component "ContentService\n上传校验 + 状态机\npending→approved/rejected" as s_content
+    component "CommentService\n自关联树形组装" as s_comment
+    component "FavoriteService" as s_fav
+    component "TranscodeQueue\n写入 Redis 队列" as s_queue
+  }
+
+  package "数据访问层 repository" as repo {
+    component "UserRepo / HeroRepo\nMatchupRepo / BuildRuneRepo" as r1
+    component "VideoRepo / ArticleRepo\nCommentRepo / FavoriteRepo" as r2
+  }
+
+  package "storage 存储抽象" as storage {
+    component "local 实现（一期）\nDocker Volume" as st_local
+    component "s3/oss 实现（日后）" as st_s3
+  }
+
+  component "GORM 模型 model\n统一响应 {code,msg,data}" as model
+}
+
+package "worker 容器（Go + ffmpeg，二期）" {
+  component "任务轮询 BLPOP/Stream" as w_poll
+  component "ffmpeg-go\nlibx264 多清晰度\nHLS 切片" as w_ff
+  component "封面抽帧 + 双英雄头像合成 16:9" as w_cover
+}
+
+database "MySQL 9.7 LTS" as mysql #F5F7FA
+database "Valkey 8\n（Redis 兼容）" as redis #F5F7FA
+folder "media volume" as media #FFF8E8
+
+nginx --> mw_log : /api/**
+mw_log --> mw_cors
+mw_cors --> mw_jwt
+mw_jwt --> handler
+
+h_auth --> s_auth
+h_hero --> s_hero
+h_content --> s_content
+h_comment --> s_comment
+h_fav --> s_fav
+h_me --> s_content
+
+s_content --> st_local
+s_content --> st_s3
+s_content ..> s_queue : 审核通过后入队
+st_local --> media
+
+s_auth --> r1
+s_hero --> r1
+s_content --> r2
+s_comment --> r2
+s_fav --> r2
+r1 --> model
+r2 --> model
+model --> mysql : GORM
+r1 --> redis : 热点缓存
+s_queue --> redis : LPUSH 任务
+
+redis --> w_poll : 轮询
+w_poll --> w_ff
+w_poll --> w_cover
+w_ff --> media : 写成片
+w_cover --> media : 写封面
+
+note bottom of s_content
+  视频生命周期：pending → approved/rejected
+  二期增加：approved → transcoding → online
+end note
+
+@enduml
