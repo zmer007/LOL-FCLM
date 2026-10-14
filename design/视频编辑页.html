@@ -165,6 +165,163 @@
   .success p { margin-top: 8px; font-size: 13px; color: var(--faint); }
   .success .form-actions { justify-content: center; border-top: 0; }
 
+  /* ============ 推荐装备 & 符文 ============ */
+  .build-editor .be-card {
+    background: var(--panel-2);
+    border: 1px solid var(--line-soft);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .build-editor .workbench > .be-card + .be-card { margin-top: 16px; }
+  .build-editor .be-sub-title {
+    font-size: 14px; font-weight: 700; color: var(--gold-bright);
+    display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+  }
+  .build-editor .be-sub-title::before {
+    content: ""; width: 3px; height: 14px; background: var(--gold); border-radius: 2px;
+  }
+  /* 素材库分类 */
+  .build-editor .filters { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 14px; }
+  .build-editor .filter {
+    font-family: inherit; font-size: 12px; cursor: pointer;
+    background: none; border: 1px solid var(--line); border-radius: 999px;
+    color: var(--faint); padding: 4px 13px;
+  }
+  .build-editor .filter:hover { color: var(--mute); }
+  .build-editor .filter.on { border-color: var(--gold); color: var(--gold); }
+  .build-editor .item-pool {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    gap: 12px 8px; max-height: 188px; overflow-y: auto; padding-right: 4px;
+  }
+  .build-editor .pool-item { text-align: center; cursor: pointer; user-select: none; }
+  .build-editor .pool-icon {
+    width: 48px; height: 48px; margin: 0 auto; border-radius: 10px;
+    border: 1px solid var(--line); background: #0A1520;
+    display: grid; place-items: center; font-size: 11px; color: var(--faint);
+    transition: border-color .15s, transform .15s;
+  }
+  .build-editor .pool-item:hover .pool-icon { border-color: var(--gold); transform: translateY(-2px); }
+  .build-editor .pool-item.summ .pool-icon:hover { border-color: var(--cyan); }
+  .build-editor .pool-name {
+    margin-top: 6px; font-size: 11px; color: var(--mute);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* 装备槽 */
+  .build-editor .item-stage { margin-bottom: 16px; }
+  .build-editor .item-stage:last-child { margin-bottom: 0; }
+  .build-editor .stage-row { display: flex; gap: 32px; }
+  .build-editor .stage-label { font-size: 12px; color: var(--faint); margin-bottom: 9px; }
+  .build-editor .items { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .build-editor .slot-item {
+    position: relative; width: 46px; height: 46px; border-radius: 9px;
+    background: #0A1520; border: 1px solid var(--line);
+    display: grid; place-items: center;
+    font-size: 10.5px; color: var(--mute); text-align: center; line-height: 1.2;
+    cursor: pointer; transition: border-color .15s, box-shadow .15s;
+  }
+  .build-editor .slot-item.filled { cursor: grab; }
+  .build-editor .slot-item.filled:active { cursor: grabbing; }
+  .build-editor .slot-item.empty { border-style: dashed; color: var(--faint); }
+  .build-editor .slot-item.empty:hover { border-color: var(--faint); }
+  .build-editor .slot-item.target,
+  .build-editor .slot-item.dragover {
+    border: 1.5px solid var(--gold); box-shadow: 0 0 10px rgba(200,170,110,.4);
+  }
+  .build-editor .slot-item .slot-del {
+    position: absolute; right: 3px; top: 3px;
+    width: 15px; height: 15px; border-radius: 50%;
+    background: rgba(7,14,22,.85); color: var(--faint);
+    font-size: 11px; line-height: 15px; text-align: center;
+    opacity: 0; transition: opacity .15s;
+  }
+  .build-editor .slot-item.filled:hover .slot-del { opacity: 1; }
+  .build-editor .slot-item .slot-del:hover { color: var(--red); }
+  .build-editor .slot-item .slot-plus { font-size: 18px; }
+  /* 符文 */
+  .build-editor .path-picker {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;
+  }
+  .build-editor .pk-label { font-size: 12px; color: var(--faint); width: 40px; flex-shrink: 0; }
+  .build-editor .path-btn {
+    font-family: inherit; font-size: 12px; cursor: pointer;
+    background: none; border: 1px solid var(--line); border-radius: 999px;
+    color: var(--faint); padding: 4px 13px;
+  }
+  .build-editor .path-btn:hover { color: var(--mute); }
+  .build-editor .path-btn.on.gold { border-color: var(--gold); color: var(--gold); }
+  .build-editor .path-btn.on.cyan { border-color: var(--cyan); color: var(--cyan); }
+  .build-editor .path-btn:disabled { opacity: .3; cursor: not-allowed; }
+  .build-editor .rune-rule { margin-left: auto; font-size: 11px; color: var(--faint); }
+  .build-editor .rune-page { display: flex; justify-content: center; gap: 26px; margin-top: 16px; }
+  .build-editor .rune-path {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .build-editor .rune-head { font-size: 12px; color: var(--faint); margin-bottom: 8px; white-space: nowrap; }
+  .build-editor .rune-path.secondary .rune-head { margin-bottom: 54px; }
+  .build-editor .rune-candidates { display: flex; gap: 12px; }
+  .build-editor .rune-slot {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: #0A1520; border: 1.5px solid #2A3F55; opacity: .4;
+    cursor: pointer; transition: border-color .15s, opacity .15s, box-shadow .15s;
+  }
+  .build-editor .rune-candidates.keystone .rune-slot { width: 36px; height: 36px; }
+  .build-editor .rune-slot:hover { opacity: .8; }
+  .build-editor .rune-slot.on {
+    opacity: 1; border-color: var(--gold); box-shadow: 0 0 10px rgba(200,170,110,.35);
+  }
+  .build-editor .rune-path.secondary .rune-slot.on {
+    border-color: var(--cyan); box-shadow: 0 0 10px rgba(10,200,185,.35);
+  }
+  .build-editor .rune-path.secondary .rune-slot:hover { border-color: var(--cyan); }
+  .build-editor .shards {
+    display: flex; flex-direction: column; justify-content: flex-start;
+    gap: 18px; padding-left: 22px; border-left: 1px solid var(--line);
+  }
+  .build-editor .shards .rune-head { margin-bottom: 58px; }
+  .build-editor .shard-row { display: flex; gap: 10px; }
+  .build-editor .shard {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #0A1520; border: 1.5px solid #2A3F55; opacity: .4;
+    cursor: pointer; transition: border-color .15s, opacity .15s;
+  }
+  .build-editor .shard:hover { opacity: .8; }
+  .build-editor .shard.on { opacity: 1; border-color: var(--gold); box-shadow: 0 0 8px rgba(200,170,110,.35); }
+
+  /* 装备卡操作提示 */
+  .build-editor .be-tip { margin: -6px 0 14px; font-size: 11.5px; color: var(--faint); }
+  /* 装备选择弹窗 */
+  .be-modal-pick { max-width: 560px; }
+  .be-mask {
+    display: none;
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(4,8,14,.68);
+    padding: 36px 20px; overflow-y: auto;
+  }
+  .be-mask.show { display: block; }
+  .be-modal {
+    max-width: 880px; margin: 0 auto;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    overflow: hidden;
+  }
+  .be-modal-head {
+    display: flex; align-items: center;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--line);
+    font-size: 15px; font-weight: 700; color: var(--gold-bright);
+  }
+  .be-modal-close {
+    margin-left: auto;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: none; border: none; cursor: pointer;
+    color: var(--faint); font-size: 20px; line-height: 1;
+  }
+  .be-modal-close:hover { color: var(--gold-bright); background: var(--panel-2); }
+  .be-modal-body { padding: 18px 22px; max-height: 70vh; overflow-y: auto; }
+  .be-modal-foot {
+    display: flex; justify-content: flex-end; gap: 10px;
+    padding: 14px 22px; border-top: 1px solid var(--line);
+  }
+
 </style>
 </head>
 <body>
@@ -211,6 +368,78 @@
           <div class="champ-picker" id="champPicker">
             <input class="inp" type="text" id="vsChamp" autocomplete="off" placeholder="输入英雄名称，从候选中选择">
             <div class="champ-suggest" id="champSuggest"></div>
+          </div>
+        </div>
+
+        <!-- 装备 & 符文：直接编辑；点空槽加号弹出装备列表 -->
+        <div class="form-row">
+          <label class="form-label">装备 &amp; 符文</label>
+          <div class="build-editor">
+            <div class="workbench" id="beWorkbench">
+              <div class="be-card">
+                <div class="be-sub-title">推荐装备</div>
+                <div class="be-tip">点击空格 ＋ 选择装备；拖动已填格子可互换；点击已填格子移除。</div>
+                <div class="stage-row">
+                  <div class="item-stage">
+                    <div class="stage-label">出门装</div>
+                    <div class="items" id="be-stage-start"></div>
+                  </div>
+                  <div class="item-stage">
+                    <div class="stage-label">召唤师技能</div>
+                    <div class="items" id="be-stage-summs"></div>
+                  </div>
+                </div>
+                <div class="item-stage">
+                  <div class="stage-label">中期过渡</div>
+                  <div class="items" id="be-stage-mid"></div>
+                </div>
+                <div class="item-stage">
+                  <div class="stage-label">核心装备</div>
+                  <div class="items" id="be-stage-core"></div>
+                </div>
+                <div class="item-stage">
+                  <div class="stage-label">后期神装</div>
+                  <div class="items" id="be-stage-final"></div>
+                </div>
+              </div>
+
+              <div class="be-card">
+                <div class="be-sub-title">推荐符文</div>
+                <div class="path-picker" id="bePrimaryPicker">
+                  <span class="pk-label">主系</span>
+                </div>
+                <div class="path-picker" id="beSecondaryPicker">
+                  <span class="pk-label">副系</span>
+                  <span class="rune-rule">主系每排 3 选 1 · 副系从 3 排中选 2 排 · 主副系不可相同</span>
+                </div>
+                <div class="rune-page" id="beRunePage"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 装备选择弹窗：点空格加号后弹出 -->
+        <div class="be-mask" id="beMask">
+          <div class="be-modal be-modal-pick">
+            <div class="be-modal-head">
+              <span id="bePickTitle">选择装备</span>
+              <button type="button" class="be-modal-close" id="beClose" aria-label="关闭">×</button>
+            </div>
+            <div class="be-modal-body">
+              <div class="filters" id="beFilters">
+                <button type="button" class="filter on" data-cat="全部">全部</button>
+                <button type="button" class="filter" data-cat="攻击">攻击</button>
+                <button type="button" class="filter" data-cat="法术">法术</button>
+                <button type="button" class="filter" data-cat="防御">防御</button>
+                <button type="button" class="filter" data-cat="移动">移动</button>
+                <button type="button" class="filter" data-cat="消耗">消耗</button>
+                <button type="button" class="filter" data-cat="召唤师技能">召唤师技能</button>
+              </div>
+              <div class="item-pool" id="bePool"></div>
+            </div>
+            <div class="be-modal-foot">
+              <button type="button" class="btn btn-ghost" id="beCancel">取消</button>
+            </div>
           </div>
         </div>
 
@@ -357,6 +586,311 @@
       successBox.classList.remove('show');
       form.style.display = '';
     });
+
+    /* ============ 内嵌装备 & 符文：单套，可编辑（占位素材，无真实游戏数据） ============ */
+    (function () {
+      var EQUIP_CATS = ['攻击', '法术', '防御', '移动', '消耗'];
+      var LIBRARY = [];
+      for (var i = 1; i <= 30; i++) {
+        LIBRARY.push({ id: i - 1, name: '装备 ' + i, cat: EQUIP_CATS[(i - 1) % 5], type: 'equip' });
+      }
+      for (var j = 1; j <= 8; j++) {
+        LIBRARY.push({ id: 100 + j, name: '技能 ' + j, cat: '召唤师技能', type: 'summ' });
+      }
+      var ITEM_MAP = {};
+      LIBRARY.forEach(function (it) { ITEM_MAP[it.id] = it; });
+
+      var PATHS = [
+        { id: 'prec', name: '精密' }, { id: 'dom', name: '主宰' },
+        { id: 'sor', name: '巫术' }, { id: 'res', name: '坚决' },
+        { id: 'ins', name: '启迪' }
+      ];
+      var PATH_NAME = {};
+      PATHS.forEach(function (p) { PATH_NAME[p.id] = p.name; });
+
+      /* 格数与对线页严格一致 */
+      var STAGES = [
+        { key: 'start', size: 2 }, { key: 'summs', size: 2 },
+        { key: 'mid', size: 5 }, { key: 'core', size: 6 }, { key: 'final', size: 7 }
+      ];
+
+      function blankPlan() {
+        return {
+          items: {
+            start: [null, null],
+            summs: [null, null],
+            mid: [null, null, null, null, null],
+            core: [null, null, null, null, null, null],
+            final: [null, null, null, null, null, null, null]
+          },
+          runes: {
+            primary: 'prec', primaryPicks: [0, 0, 0, 0],
+            secondary: 'dom', secondaryPicks: [0, 0, null],
+            shards: [0, 0, 0]
+          }
+        };
+      }
+
+      var plan = blankPlan();
+      var currentCat = '全部';
+      var targetSlot = null;
+      var dragData = null;
+
+      var filtersEl = document.getElementById('beFilters');
+      var poolEl = document.getElementById('bePool');
+      var wbEl = document.getElementById('beWorkbench');
+      var runePageEl = document.getElementById('beRunePage');
+      var primaryPickerEl = document.getElementById('bePrimaryPicker');
+      var secondaryPickerEl = document.getElementById('beSecondaryPicker');
+
+      /* 素材库分类 */
+      function renderPool() {
+        var html = '';
+        LIBRARY.forEach(function (it) {
+          if (currentCat !== '全部' && it.cat !== currentCat) return;
+          html +=
+            '<div class="pool-item' + (it.type === 'summ' ? ' summ' : '') +
+              '" data-id="' + it.id + '" title="' + it.name + '">' +
+              '<div class="pool-icon">' + (it.type === 'summ' ? '技能' : '装备') + '</div>' +
+              '<div class="pool-name">' + it.name + '</div>' +
+            '</div>';
+        });
+        poolEl.innerHTML = html;
+      }
+      filtersEl.addEventListener('click', function (e) {
+        var btn = e.target.closest('.filter');
+        if (!btn) return;
+        this.querySelectorAll('.filter').forEach(function (f) { f.classList.remove('on'); });
+        btn.classList.add('on');
+        currentCat = btn.dataset.cat;
+        renderPool();
+      });
+
+      /* 弹窗内点击素材：填入当前槽位并关闭 */
+      poolEl.addEventListener('click', function (e) {
+        var card = e.target.closest('.pool-item');
+        if (!card || !targetSlot) return;
+        plan.items[targetSlot.stage][targetSlot.index] = Number(card.dataset.id);
+        renderStages();
+        closeModal();
+      });
+
+      /* 装备槽 */
+      function renderStages() {
+        STAGES.forEach(function (stage) {
+          var box = document.getElementById('be-stage-' + stage.key);
+          var html = '';
+          plan.items[stage.key].forEach(function (id, i) {
+            var isTarget = targetSlot && targetSlot.stage === stage.key && targetSlot.index === i;
+            if (id === null || !ITEM_MAP[id]) {
+              html += '<div class="slot-item empty' + (isTarget ? ' target' : '') +
+                '" data-stage="' + stage.key + '" data-index="' + i + '"><span class="slot-plus">+</span></div>';
+            } else {
+              var it = ITEM_MAP[id];
+              html += '<div class="slot-item filled" draggable="true" data-stage="' + stage.key +
+                '" data-index="' + i + '" title="点击移除 ' + it.name + '">' +
+                '<span class="slot-del">×</span>' + it.name + '</div>';
+            }
+          });
+          box.innerHTML = html;
+        });
+      }
+
+      wbEl.addEventListener('click', function (e) {
+        var slot = e.target.closest('.slot-item');
+        if (!slot) return;
+        var stage = slot.dataset.stage;
+        var index = Number(slot.dataset.index);
+        if (slot.classList.contains('empty')) {
+          targetSlot = { stage: stage, index: index };
+          openModal(stage);
+        } else {
+          plan.items[stage][index] = null;
+          if (targetSlot && targetSlot.stage === stage && targetSlot.index === index) targetSlot = null;
+        }
+        renderStages();
+      });
+
+      /* 拖拽：仅槽与槽之间互换（装备列表在弹窗中，通过点击填入） */
+      document.addEventListener('dragstart', function (e) {
+        var slot = e.target.closest('#beWorkbench .slot-item.filled');
+        if (!slot) return;
+        dragData = { from: 'slot', stage: slot.dataset.stage, index: Number(slot.dataset.index) };
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', 'slot');
+      });
+      document.addEventListener('dragend', function () {
+        dragData = null;
+        document.querySelectorAll('.build-editor .dragover').forEach(function (n) { n.classList.remove('dragover'); });
+      });
+      wbEl.addEventListener('dragover', function (e) {
+        var slot = e.target.closest('.slot-item');
+        if (!slot || !dragData) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        document.querySelectorAll('.build-editor .slot-item.dragover').forEach(function (n) {
+          if (n !== slot) n.classList.remove('dragover');
+        });
+        slot.classList.add('dragover');
+      });
+      wbEl.addEventListener('drop', function (e) {
+        var slot = e.target.closest('.slot-item');
+        if (!slot || !dragData) return;
+        e.preventDefault();
+        var items = plan.items;
+        var from = items[dragData.stage];
+        var to = items[slot.dataset.stage];
+        var toIndex = Number(slot.dataset.index);
+        var tmp = to[toIndex];
+        to[toIndex] = from[dragData.index];
+        from[dragData.index] = tmp;
+        renderStages();
+      });
+
+      /* 符文 */
+      function renderPickers() {
+        var r = plan.runes;
+        function btns(which) {
+          return PATHS.map(function (p) {
+            var isOn = r[which] === p.id;
+            var disabled = which === 'secondary' && r.primary === p.id;
+            return '<button type="button" class="path-btn' +
+              (isOn ? ' on ' + (which === 'primary' ? 'gold' : 'cyan') : '') +
+              '" data-which="' + which + '" data-path="' + p.id + '"' +
+              (disabled ? ' disabled title="不可与主系相同"' : '') + '>' + p.name + '</button>';
+          }).join('');
+        }
+        primaryPickerEl.querySelectorAll('.path-btn').forEach(function (n) { n.remove(); });
+        secondaryPickerEl.querySelectorAll('.path-btn').forEach(function (n) { n.remove(); });
+        primaryPickerEl.insertAdjacentHTML('beforeend', btns('primary'));
+        secondaryPickerEl.insertAdjacentHTML('beforeend', btns('secondary'));
+      }
+
+      function dots(classes, count, selected) {
+        var s = '';
+        for (var k = 0; k < count; k++) {
+          s += '<div class="' + classes + (k === selected ? ' on' : '') + '" data-i="' + k + '"></div>';
+        }
+        return s;
+      }
+
+      function renderRunes() {
+        var r = plan.runes;
+        runePageEl.innerHTML =
+          '<div class="rune-path primary" data-path-role="primary">' +
+            '<div class="rune-head">主系 · ' + PATH_NAME[r.primary] + '</div>' +
+            '<div class="rune-candidates keystone" data-row="k">' + dots('rune-slot', 3, r.primaryPicks[0]) + '</div>' +
+            '<div class="rune-candidates" data-row="0">' + dots('rune-slot', 3, r.primaryPicks[1]) + '</div>' +
+            '<div class="rune-candidates" data-row="1">' + dots('rune-slot', 3, r.primaryPicks[2]) + '</div>' +
+            '<div class="rune-candidates" data-row="2">' + dots('rune-slot', 3, r.primaryPicks[3]) + '</div>' +
+          '</div>' +
+          '<div class="rune-path secondary" data-path-role="secondary">' +
+            '<div class="rune-head">副系 · ' + PATH_NAME[r.secondary] + '</div>' +
+            [0, 1, 2].map(function (row) {
+              return '<div class="rune-candidates" data-row="' + row + '">' +
+                dots('rune-slot', 3, r.secondaryPicks[row]) + '</div>';
+            }).join('') +
+          '</div>' +
+          '<div class="shards">' +
+            '<div class="rune-head">属性碎片</div>' +
+            [0, 1, 2].map(function (row) {
+              return '<div class="shard-row" data-row="' + row + '">' +
+                dots('shard', 3, r.shards[row]) + '</div>';
+            }).join('') +
+          '</div>';
+      }
+
+      primaryPickerEl.addEventListener('click', function (e) {
+        var btn = e.target.closest('.path-btn');
+        if (!btn) return;
+        var r = plan.runes;
+        r.primary = btn.dataset.path;
+        if (r.secondary === r.primary) {
+          r.secondary = PATHS.filter(function (p) { return p.id !== r.primary; })[0].id;
+        }
+        renderPickers();
+      });
+      secondaryPickerEl.addEventListener('click', function (e) {
+        var btn = e.target.closest('.path-btn');
+        if (!btn || btn.disabled) return;
+        plan.runes.secondary = btn.dataset.path;
+        renderPickers();
+      });
+      runePageEl.addEventListener('click', function (e) {
+        var dot = e.target.closest('.rune-slot, .shard');
+        if (!dot) return;
+        var r = plan.runes;
+        var i = Number(dot.dataset.i);
+        if (dot.classList.contains('shard')) {
+          r.shards[Number(dot.closest('.shard-row').dataset.row)] = i;
+        } else {
+          var row = dot.closest('.rune-candidates').dataset.row;
+          if (dot.closest('.rune-path').dataset.pathRole === 'primary') {
+            r.primaryPicks[row === 'k' ? 0 : Number(row) + 1] = i;
+          } else {
+            var picks = r.secondaryPicks;
+            var rowIdx = Number(row);
+            if (picks[rowIdx] === null) {
+              var chosen = picks.map(function (v, idx) { return v === null ? null : idx; })
+                               .filter(function (v) { return v !== null; });
+              if (chosen.length >= 2) picks[chosen[0]] = null;
+            }
+            picks[rowIdx] = i;
+          }
+        }
+        renderRunes();
+      });
+
+      function renderAll() {
+        renderPool();
+        renderStages();
+        renderPickers();
+        renderRunes();
+      }
+      renderAll();
+
+      /* 装备选择弹窗：点空槽打开，按分区自动切换分类与标题 */
+      var maskEl = document.getElementById('beMask');
+      var PICK_CAT = { start: '全部', summs: '召唤师技能', mid: '全部', core: '全部', final: '全部' };
+      var PICK_TITLE = {
+        start: '选择出门装', summs: '选择召唤师技能', mid: '选择中期过渡装备',
+        core: '选择核心装备', final: '选择后期神装'
+      };
+
+      function openModal(stage) {
+        currentCat = PICK_CAT[stage] || '全部';
+        filtersEl.querySelectorAll('.filter').forEach(function (f) {
+          f.classList.toggle('on', f.dataset.cat === currentCat);
+        });
+        renderPool();
+        document.getElementById('bePickTitle').textContent = PICK_TITLE[stage] || '选择装备';
+        maskEl.classList.add('show');
+      }
+      function closeModal() {
+        maskEl.classList.remove('show');
+        targetSlot = null;
+      }
+      document.getElementById('beClose').addEventListener('click', closeModal);
+      document.getElementById('beCancel').addEventListener('click', closeModal);
+      maskEl.addEventListener('click', function (e) { if (e.target === maskEl) closeModal(); });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && maskEl.classList.contains('show')) closeModal();
+      });
+
+      /* “再传一个”时同步清空本配置 */
+      var againBtn = document.getElementById('againBtn');
+      if (againBtn) {
+        againBtn.addEventListener('click', function () {
+          plan = blankPlan();
+          currentCat = '全部';
+          targetSlot = null;
+          filtersEl.querySelectorAll('.filter').forEach(function (f, idx) {
+            f.classList.toggle('on', idx === 0);
+          });
+          renderAll();
+        });
+      }
+    })();
   </script>
 
 </body>
