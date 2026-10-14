@@ -29,7 +29,12 @@ function onLogout() {
           </span>
         </div>
       </div>
-      <button class="me-logout" type="button" @click="onLogout">退出登录</button>
+      <div class="me-actions">
+        <router-link v-if="userStore.user?.role === 'admin'" class="me-admin" to="/admin">
+          管理后台
+        </router-link>
+        <button class="me-logout" type="button" @click="onLogout">退出登录</button>
+      </div>
     </section>
   </main>
 </template>
@@ -82,6 +87,22 @@ function onLogout() {
   border-radius: 999px;
   padding: 1px 10px;
   font-size: 11.5px;
+}
+.me-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.me-admin {
+  font-size: 12.5px;
+  color: var(--gold);
+  text-decoration: none;
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  padding: 6px 18px;
+}
+.me-admin:hover {
+  background: rgba(200, 170, 110, 0.12);
 }
 .me-logout {
   font-family: inherit;

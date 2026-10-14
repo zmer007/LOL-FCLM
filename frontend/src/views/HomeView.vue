@@ -6,10 +6,8 @@ const router = useRouter()
 const keyword = ref('')
 
 function onSearch() {
-  const q = keyword.value.trim()
-  if (!q) return
-  // 首页搜索英雄 → 对线页（参数名与设计稿一致：champion）
-  router.push({ path: '/matchup', query: { champion: q } })
+  // 与设计稿一致：即使未输入也进入对线页（参数可为空）
+  router.push({ path: '/matchup', query: { champion: keyword.value.trim() } })
 }
 </script>
 

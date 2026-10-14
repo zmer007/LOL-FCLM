@@ -13,6 +13,9 @@ type Config struct {
 	MediaRoot      string // 上传文件目录
 	JWTSecret      string // JWT 签名密钥
 	JWTExpireHours int    // JWT 有效期（小时）
+	AdminUsername  string // 启动时确保存在的管理员账号
+	AdminPassword  string
+	MaxImageMB     int // 图标上传大小上限（MB）
 }
 
 func Load() Config {
@@ -23,6 +26,9 @@ func Load() Config {
 		MediaRoot:      getenv("MEDIA_ROOT", "/data/media"),
 		JWTSecret:      getenv("JWT_SECRET", "dev-secret-change-me"),
 		JWTExpireHours: getenvInt("JWT_EXPIRE_HOURS", 168),
+		AdminUsername:  getenv("ADMIN_USERNAME", "admin"),
+		AdminPassword:  getenv("ADMIN_PASSWORD", "admin12345"),
+		MaxImageMB:     getenvInt("MAX_IMAGE_MB", 5),
 	}
 }
 

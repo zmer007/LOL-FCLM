@@ -33,6 +33,12 @@ func RequiredAuth(auth *service.AuthService) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		// 实时校验账号状态：被禁用后即使 token 未过期也立即失效
+		if !auth.IsActive(claims.UserID) {
+			response.Fail(c, 403, 403, "账号已被禁用")
+			c.Abort()
+			return
+		}
 		c.Set(CtxUserID, claims.UserID)
 		c.Set(CtxUsername, claims.Username)
 		c.Set(CtxRole, claims.Role)
@@ -48,4 +54,17 @@ func UserID(c *gin.Context) int64 {
 		}
 	}
 	return 0
+}
+
+// RequireAdmin 在已登录基础上要求 role=admin。
+func RequireAdmin() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, _ := c.Get(CtxRole)
+		if role != "admin" {
+			response.Fail(c, 403, 403, "需要管理员权限")
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
 }

@@ -46,3 +46,43 @@ func (r *UserRepository) FindByID(id int64) (*model.User, error) {
 	}
 	return &u, nil
 }
+
+func (r *UserRepository) List() ([]model.User, error) {
+	var users []model.User
+	err := r.db.Order("id DESC").Find(&users).Error
+	return users, err
+}
+
+func (r *UserRepository) UpdateStatus(id int64, status string) error {
+	return r.updateColumn(id, "status", status)
+}
+
+func (r *UserRepository) UpdateRole(id int64, role string) error {
+	return r.updateColumn(id, "role", role)
+}
+
+func (r *UserRepository) UpdatePassword(id int64, hash string) error {
+	return r.updateColumn(id, "password_hash", hash)
+}
+
+func (r *UserRepository) Delete(id int64) error {
+	res := r.db.Delete(&model.User{}, id)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *UserRepository) updateColumn(id int64, column, value string) error {
+	res := r.db.Model(&model.User{}).Where("id = ?", id).Update(column, value)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

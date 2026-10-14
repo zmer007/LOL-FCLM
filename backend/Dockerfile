@@ -15,7 +15,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./c
 # ---------- api 运行镜像 ----------
 FROM alpine:3.20 AS api
 RUN apk add --no-cache ca-certificates tzdata \
- && adduser -D -u 10001 appuser
+ && adduser -D -u 10001 appuser \
+ && mkdir -p /data/media && chown appuser:appuser /data/media
 WORKDIR /app
 COPY --from=build /out/api /app/api
 USER appuser
@@ -25,7 +26,8 @@ ENTRYPOINT ["/app/api"]
 # ---------- worker 运行镜像（需要 ffmpeg） ----------
 FROM alpine:3.20 AS worker
 RUN apk add --no-cache ca-certificates tzdata ffmpeg \
- && adduser -D -u 10001 appuser
+ && adduser -D -u 10001 appuser \
+ && mkdir -p /data/media && chown appuser:appuser /data/media
 WORKDIR /app
 COPY --from=build /out/worker /app/worker
 USER appuser

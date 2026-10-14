@@ -19,6 +19,7 @@ var (
 	ErrUsernameTaken  = errors.New("username already taken")
 	ErrBadCredentials = errors.New("invalid username or password")
 	ErrUserNotFound   = errors.New("user not found")
+	ErrUserDisabled   = errors.New("user disabled")
 )
 
 // ValidationError 携带可直接展示给用户的校验提示。
@@ -70,6 +71,7 @@ func (s *AuthService) Register(username, password string) (*model.User, string, 
 		Username:     username,
 		PasswordHash: string(hash),
 		Role:         "user",
+		Status:       model.UserStatusActive,
 	}
 	if err := s.users.Create(u); err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
@@ -100,11 +102,42 @@ func (s *AuthService) Login(username, password string) (*model.User, string, err
 	if bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)) != nil {
 		return nil, "", ErrBadCredentials
 	}
+	if u.Status == model.UserStatusDisabled {
+		return nil, "", ErrUserDisabled
+	}
 	token, err := s.issueToken(u)
 	if err != nil {
 		return nil, "", err
 	}
 	return u, token, nil
+}
+
+// EnsureAdmin 启动时确保配置中的管理员账号存在。
+func (s *AuthService) EnsureAdmin(username, password string) error {
+	if username == "" || password == "" {
+		return nil
+	}
+	if _, err := s.users.FindByUsername(username); err == nil {
+		return nil // 已存在
+	} else if !errors.Is(err, repository.ErrNotFound) {
+		return err
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	return s.users.Create(&model.User{
+		Username:     username,
+		PasswordHash: string(hash),
+		Role:         "admin",
+		Status:       model.UserStatusActive,
+	})
+}
+
+// IsActive 判断用户当前是否存在且未被禁用（供鉴权中间件实时校验）。
+func (s *AuthService) IsActive(id int64) bool {
+	u, err := s.users.FindByID(id)
+	return err == nil && u.Status == model.UserStatusActive
 }
 
 // GetUser 按 ID 取用户（/me 使用）。

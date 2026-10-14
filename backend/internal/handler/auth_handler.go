@@ -62,6 +62,9 @@ func (h *AuthHandler) authenticate(c *gin.Context, isLogin bool) {
 	case errors.Is(err, service.ErrBadCredentials):
 		response.Fail(c, 401, 401, "用户名或密码错误")
 		return
+	case errors.Is(err, service.ErrUserDisabled):
+		response.Fail(c, 403, 403, "账号已被禁用，请联系管理员")
+		return
 	case err != nil:
 		response.Fail(c, 500, 500, "服务器开小差了")
 		return

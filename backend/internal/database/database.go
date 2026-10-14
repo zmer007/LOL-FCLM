@@ -18,7 +18,8 @@ func Open(dsn string) (*gorm.DB, error) {
 	var err error
 	for attempt := 1; attempt <= 15; attempt++ {
 		db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
-			Logger: logger.Default.LogMode(logger.Warn),
+			Logger:         logger.Default.LogMode(logger.Warn),
+			TranslateError: true,
 		})
 		if err == nil {
 			sqlDB, e := db.DB()
@@ -37,7 +38,7 @@ func Open(dsn string) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&model.User{}); err != nil {
+	if err := db.AutoMigrate(&model.User{}, &model.Hero{}, &model.GameAsset{}); err != nil {
 		return nil, err
 	}
 	return db, nil
