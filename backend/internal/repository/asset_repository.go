@@ -31,6 +31,22 @@ func (r *AssetRepository) List(category, subCategory string) ([]model.GameAsset,
 	return assets, err
 }
 
+// FindByIDs 按主键批量查询素材，返回以 id 为键的 map（方案校验/组装用）。
+func (r *AssetRepository) FindByIDs(ids []int64) (map[int64]*model.GameAsset, error) {
+	out := make(map[int64]*model.GameAsset, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var assets []model.GameAsset
+	if err := r.db.Where("id IN ?", ids).Find(&assets).Error; err != nil {
+		return nil, err
+	}
+	for i := range assets {
+		out[assets[i].ID] = &assets[i]
+	}
+	return out, nil
+}
+
 // UpsertDDragon 按 category+name 插入或更新素材（同一分类下 Riot 名称唯一）。
 func (r *AssetRepository) UpsertDDragon(a *model.GameAsset) error {
 	var existing model.GameAsset

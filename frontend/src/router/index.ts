@@ -37,6 +37,13 @@ const router = createRouter({
       component: () => import('../views/AdminView.vue'),
       meta: { requiresAuth: true },
     },
+    {
+      // 管理员制作英雄推荐装备 & 符文方案（页内再校验管理员角色）
+      path: '/build',
+      name: 'build-editor',
+      component: () => import('../views/BuildEditorView.vue'),
+      meta: { requiresAuth: true },
+    },
   ],
 })
 

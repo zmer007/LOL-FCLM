@@ -16,6 +16,9 @@ const (
 	VersionsURL    = "https://ddragon.leagueoflegends.com/api/versions.json"
 	DefaultLang    = "zh_CN"
 	requestTimeout = 30 * time.Second
+
+	// CDragonBaseURL Community Dragon 镜像基址。Riot 官方桶的属性碎片图标 403，故碎片走此镜像。
+	CDragonBaseURL = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/default"
 )
 
 type Client struct {
@@ -155,6 +158,12 @@ func (c *Client) OpenIcon(ctx context.Context, version, remotePath string) (io.R
 // OpenIconGlobal 打开与版本无关的全局图标流（符文图标位于 cdn/img/ 下）。
 func (c *Client) OpenIconGlobal(ctx context.Context, remotePath string) (io.ReadCloser, error) {
 	url := fmt.Sprintf("%s/%s", BaseURL, remotePath)
+	return c.open(ctx, url)
+}
+
+// OpenShardIcon 打开属性碎片图标流（Community Dragon 镜像，file 不含扩展名）。
+func (c *Client) OpenShardIcon(ctx context.Context, file string) (io.ReadCloser, error) {
+	url := fmt.Sprintf("%s/v1/perk-images/statmods/%s.png", CDragonBaseURL, file)
 	return c.open(ctx, url)
 }
 

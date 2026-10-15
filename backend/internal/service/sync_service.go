@@ -41,6 +41,7 @@ type SyncService struct {
 	cli      *ddragon.Client
 	heroes   *repository.HeroRepository
 	assets   *repository.AssetRepository
+	runes    *repository.RuneRepository
 	settings *repository.SettingRepository
 	store    *storage.LocalStore
 
@@ -52,10 +53,14 @@ func NewSyncService(
 	cli *ddragon.Client,
 	heroes *repository.HeroRepository,
 	assets *repository.AssetRepository,
+	runes *repository.RuneRepository,
 	settings *repository.SettingRepository,
 	store *storage.LocalStore,
 ) *SyncService {
-	return &SyncService{cli: cli, heroes: heroes, assets: assets, settings: settings, store: store}
+	return &SyncService{
+		cli: cli, heroes: heroes, assets: assets, runes: runes,
+		settings: settings, store: store,
+	}
 }
 
 // State 返回当前同步状态（附带上次成功版本与时间）。
@@ -267,30 +272,50 @@ func (s *SyncService) run(force bool) error {
 	}
 	failedTotal += int64(s.runJobs(ctx, "同步召唤师技能图标", spellJobs))
 
-	// 6. 符文：每个符文系本身 + 各排符文（用数字 id 命名避免重名）
+	// 6. 符文：每个符文系本身 + 各排符文（用数字 id 命名避免重名）。
+	//    同时双写结构化 RuneTree/Rune（含排次/基石标记）供制作器与对线页使用。
 	runeJobs := make([]iconJob, 0)
 	for _, tree := range runeTrees {
+		treeID := int64(tree.ID)
+		treeName, treeKey, treeIcon := tree.Name, tree.Key, tree.Icon
+		treeSort := ddragon.TreeSort(treeID)
 		treeFile := strconv.Itoa(tree.ID) + ".png"
 		runeJobs = append(runeJobs, iconJob{
 			dir: "runes", file: treeFile, global: true,
-			remote: "img/" + tree.Icon,
+			remote: "img/" + treeIcon,
 			apply: func(url string) error {
-				return s.assets.UpsertDDragon(&model.GameAsset{
-					Category: model.AssetCategoryRune, SubCategory: tree.Name,
-					Name: tree.Name, DDragonID: strconv.Itoa(tree.ID), Version: version, Icon: url,
+				if err := s.assets.UpsertDDragon(&model.GameAsset{
+					Category: model.AssetCategoryRune, SubCategory: treeName,
+					Name: treeName, DDragonID: strconv.Itoa(tree.ID), Version: version, Icon: url,
+				}); err != nil {
+					return err
+				}
+				return s.runes.UpsertTree(&model.RuneTree{
+					ID: treeID, Key: treeKey, Name: treeName, Icon: url, Sort: treeSort,
 				})
 			},
 		})
-		for _, slot := range tree.Slots {
-			for _, rune_ := range slot.Runes {
+		for slotIdx, slot := range tree.Slots {
+			row := slotIdx
+			isKeystone := slotIdx == 0
+			for runeIdx, rune_ := range slot.Runes {
+				runeID := int64(rune_.ID)
+				runeName, runeIcon := rune_.Name, rune_.Icon
+				runeSort := runeIdx
 				runeFile := strconv.Itoa(rune_.ID) + ".png"
 				runeJobs = append(runeJobs, iconJob{
 					dir: "runes", file: runeFile, global: true,
-					remote: "img/" + rune_.Icon,
+					remote: "img/" + runeIcon,
 					apply: func(url string) error {
-						return s.assets.UpsertDDragon(&model.GameAsset{
-							Category: model.AssetCategoryRune, SubCategory: tree.Name,
-							Name: rune_.Name, DDragonID: strconv.Itoa(rune_.ID), Version: version, Icon: url,
+						if err := s.assets.UpsertDDragon(&model.GameAsset{
+							Category: model.AssetCategoryRune, SubCategory: treeName,
+							Name: runeName, DDragonID: strconv.Itoa(rune_.ID), Version: version, Icon: url,
+						}); err != nil {
+							return err
+						}
+						return s.runes.UpsertRune(&model.Rune{
+							ID: runeID, TreeID: treeID, Name: runeName, Icon: url,
+							Row: row, IsKeystone: isKeystone, Sort: runeSort,
 						})
 					},
 				})
@@ -298,6 +323,17 @@ func (s *SyncService) run(force bool) error {
 		}
 	}
 	failedTotal += int64(s.runJobs(ctx, "同步符文图标", runeJobs))
+
+	// 6.5 属性碎片：固定 6 张图（Community Dragon 镜像），仅落盘不写库
+	shardJobs := make([]iconJob, 0, 6)
+	for _, f := range ddragon.ShardFiles() {
+		file := f + ".png"
+		shardJobs = append(shardJobs, iconJob{
+			dir: "shards", file: file, cdragon: true, remote: f,
+			apply: func(string) error { return nil },
+		})
+	}
+	failedTotal += int64(s.runJobs(ctx, "同步属性碎片", shardJobs))
 
 	// 7. 全部成功才记录版本（有失败时下次点击仍会重试缺失图标）
 	if failedTotal > 0 {
@@ -319,11 +355,12 @@ func (s *SyncService) run(force bool) error {
 // ---------- 并发执行 ----------
 
 type iconJob struct {
-	dir    string
-	file   string
-	remote string                      // CDN 上的相对路径
-	global bool                        // true 表示与版本无关（cdn/img/，符文图标）
-	apply  func(localURL string) error // 落盘后 upsert 数据库
+	dir     string
+	file    string
+	remote  string                      // CDN 上的相对路径（cdragon=true 时为不含扩展名的文件名）
+	global  bool                        // true 表示与版本无关（cdn/img/，符文图标）
+	cdragon bool                        // true 表示走 Community Dragon 镜像（属性碎片）
+	apply   func(localURL string) error // 落盘后 upsert 数据库
 }
 
 func (s *SyncService) runJobs(ctx context.Context, stage string, jobs []iconJob) int {
@@ -346,9 +383,12 @@ func (s *SyncService) runJobs(ctx context.Context, stage string, jobs []iconJob)
 			if !s.store.IconExists(job.dir, job.file) {
 				var body io.ReadCloser
 				var err error
-				if job.global {
+				switch {
+				case job.cdragon:
+					body, err = s.cli.OpenShardIcon(ctx, job.remote)
+				case job.global:
 					body, err = s.cli.OpenIconGlobal(ctx, job.remote)
-				} else {
+				default:
 					body, err = s.cli.OpenIcon(ctx, s.State().Version, job.remote)
 				}
 				if err == nil {

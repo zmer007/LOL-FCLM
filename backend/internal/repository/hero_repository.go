@@ -37,6 +37,13 @@ func (r *HeroRepository) FindByDDragonID(ddID string) (*model.Hero, error) {
 	return &h, nil
 }
 
+// Exists 判断英雄 id 是否存在。
+func (r *HeroRepository) Exists(id int64) (bool, error) {
+	var n int64
+	err := r.db.Model(&model.Hero{}).Where("id = ?", id).Count(&n).Error
+	return n > 0, err
+}
+
 // UpsertDDragon 按 Data Dragon id 插入或更新英雄；保留管理员维护的 Lane 不变。
 func (r *HeroRepository) UpsertDDragon(h *model.Hero) error {
 	var existing model.Hero
