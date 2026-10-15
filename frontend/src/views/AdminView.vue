@@ -1,24 +1,22 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useUserStore } from '../stores/user'
 import {
   type AdminUser,
   type AssetCategory,
   type GameAsset,
   type Hero,
+  type SyncState,
   addUser,
-  createAsset,
-  createHero,
-  deleteAsset,
   deleteUser,
+  getSyncStatus,
   listAssets,
   listHeroes,
   listUsers,
   resetUserPassword,
   setUserRole,
   setUserStatus,
-  uploadAssetIcon,
-  uploadHeroAvatar,
+  triggerSync,
 } from '../api/admin'
 
 const userStore = useUserStore()
@@ -35,39 +33,38 @@ const tabs: { key: TabKey; label: string }[] = [
 ]
 const activeTab = ref<TabKey>('users')
 
-const LANES = ['上单', '打野', '中单', '下路', '辅助']
-const SUBS: Record<Exclude<TabKey, 'hero' | 'users'>, string[]> = {
-  item: ['攻击', '法术', '防御', '移动', '消耗'],
-  skill: [],
-  rune: ['精密', '主宰', '巫术', '坚决', '启迪'],
-}
+// 装备子分类（与后端同步归类一致）
+const ITEM_SUBS = ['攻击', '法术', '防御', '移动', '消耗', '其他']
 
 const heroes = ref<Hero[]>([])
 const assets = ref<GameAsset[]>([])
 const users = ref<AdminUser[]>([])
 const loading = ref(false)
-const busyId = ref<number | null>(null)
 const errorMsg = ref('')
 
-// 新增英雄表单
-const heroName = ref('')
-const heroLane = ref(LANES[0])
-// 新增素材表单
-const assetName = ref('')
-const assetSub = ref('')
-// 新增用户表单
+// 用户管理表单
 const newUsername = ref('')
 const newPassword = ref('')
 const newRole = ref<'user' | 'admin'>('user')
 const currentUserId = ref<number>(0)
+
+// Data Dragon 同步状态
+const sync = ref<SyncState | null>(null)
+const itemSubFilter = ref('全部')
+let pollTimer: ReturnType<typeof setInterval> | null = null
 
 onMounted(async () => {
   const u = await userStore.loadMe()
   isAdmin.value = u?.role === 'admin'
   currentUserId.value = u?.id ?? 0
   checking.value = false
-  if (isAdmin.value) loadData()
+  if (isAdmin.value) {
+    loadData()
+    refreshSync()
+  }
 })
+
+onBeforeUnmount(() => stopPolling())
 
 async function loadData() {
   loading.value = true
@@ -90,82 +87,66 @@ async function loadData() {
 function switchTab(key: TabKey) {
   activeTab.value = key
   errorMsg.value = ''
-  assetName.value = ''
-  if (key !== 'hero' && key !== 'users') assetSub.value = SUBS[key][0] || ''
+  itemSubFilter.value = '全部'
   loadData()
 }
 
-async function addHero() {
-  errorMsg.value = ''
-  const name = heroName.value.trim()
-  if (!name) {
-    errorMsg.value = '请输入英雄名称'
-    return
-  }
+const visibleAssets = () =>
+  itemSubFilter.value === '全部'
+    ? assets.value
+    : assets.value.filter((a) => a.subCategory === itemSubFilter.value)
+
+// ---------- Data Dragon 同步 ----------
+
+async function refreshSync() {
   try {
-    await createHero(name, heroLane.value)
-    heroName.value = ''
-    await loadData()
+    sync.value = await getSyncStatus()
+    if (sync.value.running) startPolling()
+  } catch {
+    // 状态拉取失败不打扰用户
+  }
+}
+
+function startPolling() {
+  if (pollTimer) return
+  pollTimer = setInterval(async () => {
+    try {
+      sync.value = await getSyncStatus()
+      if (!sync.value.running) {
+        stopPolling()
+        await loadData() // 同步结束后刷新当前网格
+      }
+    } catch {
+      stopPolling()
+    }
+  }, 2000)
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+async function startSync() {
+  errorMsg.value = ''
+  try {
+    sync.value = await triggerSync(false)
+    startPolling()
   } catch (e) {
     errorMsg.value = (e as Error).message
   }
 }
 
-async function addAsset() {
-  errorMsg.value = ''
-  const name = assetName.value.trim()
-  if (!name) {
-    errorMsg.value = '请输入素材名称'
-    return
+const progressText = () => {
+  if (!sync.value) return ''
+  const s = sync.value
+  if (s.running && s.stageTotal > 0) {
+    return `${s.stage} ${s.stageDone}/${s.stageTotal}`
   }
-  const category = activeTab.value as AssetCategory
-  const sub = category === 'skill' ? '召唤师技能' : assetSub.value
-  try {
-    await createAsset(category, sub, name)
-    assetName.value = ''
-    await loadData()
-  } catch (e) {
-    errorMsg.value = (e as Error).message
-  }
-}
-
-async function onHeroFile(hero: Hero, file: File | undefined) {
-  if (!file) return
-  busyId.value = hero.id
-  errorMsg.value = ''
-  try {
-    await uploadHeroAvatar(hero.id, file)
-    await loadData()
-  } catch (e) {
-    errorMsg.value = (e as Error).message
-  } finally {
-    busyId.value = null
-  }
-}
-
-async function onAssetFile(asset: GameAsset, file: File | undefined) {
-  if (!file) return
-  busyId.value = asset.id
-  errorMsg.value = ''
-  try {
-    await uploadAssetIcon(asset.id, file)
-    await loadData()
-  } catch (e) {
-    errorMsg.value = (e as Error).message
-  } finally {
-    busyId.value = null
-  }
-}
-
-async function removeAsset(asset: GameAsset) {
-  if (!window.confirm(`确定删除素材「${asset.name}」吗？`)) return
-  errorMsg.value = ''
-  try {
-    await deleteAsset(asset.id)
-    await loadData()
-  } catch (e) {
-    errorMsg.value = (e as Error).message
-  }
+  if (s.running) return s.stage
+  return s.message
 }
 
 // ---------- 用户管理 ----------
@@ -335,60 +316,65 @@ async function removeUser(u: AdminUser) {
         <p v-if="!loading && users.length === 0" class="admin-tip">还没有用户</p>
       </section>
 
-      <!-- 英雄面板 -->
-      <section v-else-if="activeTab === 'hero'" class="panel">
-        <div class="create-row">
-          <input v-model="heroName" class="txt" type="text" maxlength="20" placeholder="新英雄名称"
-                 @keyup.enter="addHero" />
-          <select v-model="heroLane" class="sel">
-            <option v-for="l in LANES" :key="l" :value="l">{{ l }}</option>
-          </select>
-          <button class="btn" @click="addHero">新增英雄</button>
-        </div>
-
-        <div v-if="loading" class="admin-tip">加载中…</div>
-        <div v-else-if="heroes.length === 0" class="admin-tip">还没有英雄，先新增一个吧</div>
-        <div v-else class="grid">
-          <div v-for="h in heroes" :key="h.id" class="cell">
-            <label class="thumb hero-thumb" :class="{ busy: busyId === h.id }">
-              <img v-if="h.avatar" :src="h.avatar" :alt="h.name" />
-              <span v-else class="placeholder">点击上传</span>
-              <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-                     @change="onHeroFile(h, ($event.target as HTMLInputElement).files?.[0])" />
-            </label>
-            <div class="cell-name">{{ h.name }}</div>
-            <div class="cell-sub">{{ h.lane }}</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 素材面板 -->
+      <!-- 数据面板（英雄 / 装备 / 召唤师技能 / 符文，均由 Data Dragon 同步） -->
       <section v-else class="panel">
-        <div class="create-row">
-          <input v-model="assetName" class="txt" type="text" maxlength="48" placeholder="新素材名称"
-                 @keyup.enter="addAsset" />
-          <select v-if="activeTab !== 'skill'" v-model="assetSub" class="sel">
-            <option v-for="s in SUBS[activeTab as Exclude<TabKey, 'hero' | 'users'>]" :key="s" :value="s">{{ s }}</option>
-          </select>
-          <button class="btn" @click="addAsset">新增素材</button>
+        <div class="sync-bar">
+          <div class="sync-info">
+            <span class="sync-version">
+              数据版本：{{ sync?.version ? sync.version : '未同步' }}
+            </span>
+            <span v-if="sync?.finishedAt" class="sync-time">最近更新：{{ sync.finishedAt }}</span>
+            <span v-if="sync" class="sync-msg" :class="'msg-' + sync.status">{{ progressText() }}</span>
+          </div>
+          <button class="btn" :disabled="sync?.running" @click="startSync">
+            {{ sync?.running ? '更新中…' : '更新数据' }}
+          </button>
+        </div>
+
+        <!-- 装备子分类筛选 -->
+        <div v-if="activeTab === 'item'" class="subfilters">
+          <button
+            class="chip"
+            :class="{ on: itemSubFilter === '全部' }"
+            @click="itemSubFilter = '全部'"
+          >全部</button>
+          <button
+            v-for="s in ITEM_SUBS"
+            :key="s"
+            class="chip"
+            :class="{ on: itemSubFilter === s }"
+            @click="itemSubFilter = s"
+          >{{ s }}</button>
         </div>
 
         <div v-if="loading" class="admin-tip">加载中…</div>
-        <div v-else-if="assets.length === 0" class="admin-tip">还没有素材，先新增一个吧</div>
+
+        <!-- 英雄只读网格 -->
+        <div v-else-if="activeTab === 'hero'" class="grid">
+          <div v-for="h in heroes" :key="h.id" class="cell">
+            <div class="thumb hero-thumb">
+              <img v-if="h.avatar" :src="h.avatar" :alt="h.name" />
+              <span v-else class="placeholder">暂无图标</span>
+            </div>
+            <div class="cell-name">{{ h.name }}</div>
+            <div class="cell-sub">{{ h.title || '—' }}</div>
+          </div>
+          <p v-if="heroes.length === 0" class="admin-tip full-row">尚未同步，点击右上角「更新数据」</p>
+        </div>
+
+        <!-- 素材只读网格 -->
         <div v-else class="grid">
-          <div v-for="a in assets" :key="a.id" class="cell">
-            <div class="asset-wrap">
-              <label class="thumb asset-thumb" :class="{ busy: busyId === a.id }">
-                <img v-if="a.icon" :src="a.icon" :alt="a.name" />
-                <span v-else class="placeholder">上传图标</span>
-                <input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
-                       @change="onAssetFile(a, ($event.target as HTMLInputElement).files?.[0])" />
-              </label>
-              <button class="cell-del" title="删除" @click="removeAsset(a)">×</button>
+          <div v-for="a in visibleAssets()" :key="a.id" class="cell">
+            <div class="thumb asset-thumb">
+              <img v-if="a.icon" :src="a.icon" :alt="a.name" />
+              <span v-else class="placeholder">暂无图标</span>
             </div>
             <div class="cell-name">{{ a.name }}</div>
             <div class="cell-sub">{{ a.subCategory || '—' }}</div>
           </div>
+          <p v-if="visibleAssets().length === 0" class="admin-tip full-row">
+            {{ assets.length === 0 ? '尚未同步，点击右上角「更新数据」' : '该分类下暂无素材' }}
+          </p>
         </div>
       </section>
     </template>
@@ -421,6 +407,10 @@ async function removeUser(u: AdminUser) {
   font-size: 13px;
   padding: 20px 0;
 }
+.full-row {
+  grid-column: 1 / -1;
+  text-align: center;
+}
 .admin-denied {
   background: var(--panel);
   border: 1px solid var(--line-soft);
@@ -443,6 +433,7 @@ async function removeUser(u: AdminUser) {
   display: flex;
   gap: 8px;
   margin-bottom: 22px;
+  flex-wrap: wrap;
 }
 .tab {
   font-family: inherit;
@@ -511,13 +502,78 @@ async function removeUser(u: AdminUser) {
   font-weight: 700;
   cursor: pointer;
 }
-.btn:hover {
+.btn:hover:not(:disabled) {
   background: #d8bc82;
+}
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 .admin-error {
   font-size: 12.5px;
   color: var(--red);
   margin-bottom: 14px;
+}
+
+/* Data Dragon 同步条 */
+.sync-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.sync-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.sync-version {
+  font-size: 13px;
+  color: var(--gold-bright);
+}
+.sync-time {
+  font-size: 11.5px;
+  color: var(--faint);
+}
+.sync-msg {
+  font-size: 12px;
+  color: var(--mute);
+}
+.sync-msg.msg-success {
+  color: var(--cyan);
+}
+.sync-msg.msg-skipped {
+  color: var(--faint);
+}
+.sync-msg.msg-failed {
+  color: var(--red);
+}
+
+.subfilters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.chip {
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--faint);
+  padding: 4px 14px;
+}
+.chip.on {
+  border-color: var(--gold);
+  color: var(--gold);
 }
 
 .grid {
@@ -529,23 +585,13 @@ async function removeUser(u: AdminUser) {
   text-align: center;
 }
 .thumb {
-  position: relative;
   display: grid;
   place-items: center;
   margin: 0 auto;
   border-radius: 12px;
   border: 1px solid var(--line);
   background: linear-gradient(135deg, #1c3350, #132438);
-  cursor: pointer;
   overflow: hidden;
-  transition: border-color 0.15s;
-}
-.thumb:hover {
-  border-color: var(--gold);
-}
-.thumb.busy {
-  opacity: 0.5;
-  pointer-events: none;
 }
 .hero-thumb {
   width: 72px;
@@ -565,30 +611,6 @@ async function removeUser(u: AdminUser) {
   font-size: 11px;
   color: var(--faint);
   padding: 0 6px;
-}
-.thumb input {
-  display: none;
-}
-.asset-wrap {
-  position: relative;
-  width: 56px;
-  margin: 0 auto;
-}
-.cell-del {
-  position: absolute;
-  top: -8px;
-  right: -10px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 1px solid var(--red);
-  background: var(--panel);
-  color: var(--red);
-  font-size: 13px;
-  line-height: 1;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
 }
 .cell-name {
   margin-top: 8px;

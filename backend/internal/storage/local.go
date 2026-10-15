@@ -93,3 +93,57 @@ func (s *LocalStore) SaveIcon(filename string, contentType string, src io.Reader
 
 	return s.urlPrefix + "/icons/" + month + "/" + name, nil
 }
+
+// SaveIconFile 保存服务端从可信来源（Data Dragon CDN）下载的图标，
+// 按固定目录与文件名落盘以保证幂等；文件已存在时跳过下载。
+// dir 为 icons 下的分组（heroes/items/spells/runes）。
+// 返回：本地 URL、是否新写入。
+func (s *LocalStore) SaveIconFile(dir, filename string, src io.Reader) (string, bool, error) {
+	if !safeIconName(filename) {
+		return "", false, ErrInvalidImage
+	}
+	rel := filepath.Join("icons", dir, filename)
+	full := filepath.Join(s.root, rel)
+	url := s.urlPrefix + "/" + filepath.ToSlash(rel)
+
+	if _, err := os.Stat(full); err == nil {
+		return url, false, nil // 已存在，复用
+	}
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		return "", false, err
+	}
+	f, err := os.Create(full)
+	if err != nil {
+		return "", false, err
+	}
+	defer f.Close()
+	if _, err := io.Copy(f, src); err != nil {
+		return "", false, err
+	}
+	return url, true, nil
+}
+
+// IconURL 返回图标在固定目录/文件名下的对外 URL。
+func (s *LocalStore) IconURL(dir, filename string) string {
+	return s.urlPrefix + "/" + filepath.ToSlash(filepath.Join("icons", dir, filename))
+}
+
+// IconExists 判断固定路径图标是否已存在（同步前用于跳过下载）。
+func (s *LocalStore) IconExists(dir, filename string) bool {
+	if !safeIconName(filename) {
+		return false
+	}
+	_, err := os.Stat(filepath.Join(s.root, "icons", dir, filename))
+	return err == nil
+}
+
+// safeIconName 防止路径穿越，只允许单层文件名。
+func safeIconName(name string) bool {
+	if name == "" || name == "." || name == ".." {
+		return false
+	}
+	if filepath.Base(name) != name {
+		return false
+	}
+	return allowedExt[strings.ToLower(filepath.Ext(name))] != ""
+}

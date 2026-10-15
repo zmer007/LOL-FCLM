@@ -3,7 +3,10 @@ import { http } from './http'
 export interface Hero {
   id: number
   name: string
+  title: string
   lane: string
+  ddragonId: string
+  ddragonKey: string
   avatar: string
   createdAt: string
   updatedAt: string
@@ -16,6 +19,8 @@ export interface GameAsset {
   category: AssetCategory
   subCategory: string
   name: string
+  ddragonId: string
+  version: string
   icon: string
 }
 
@@ -123,4 +128,30 @@ export function resetUserPassword(id: number, password: string) {
 
 export function deleteUser(id: number) {
   return http<{ ok: boolean }>({ method: 'DELETE', url: `/admin/users/${id}` })
+}
+
+// ---------- Data Dragon 同步 ----------
+
+export interface SyncState {
+  running: boolean
+  status: 'idle' | 'running' | 'success' | 'skipped' | 'failed'
+  version: string
+  stage: string
+  total: number
+  done: number
+  stageTotal: number
+  stageDone: number
+  failed: number
+  downloaded: number
+  message: string
+  startedAt?: string
+  finishedAt?: string
+}
+
+export function triggerSync(force = false) {
+  return http<SyncState>({ method: 'POST', url: '/admin/sync/ddragon', data: { force } })
+}
+
+export function getSyncStatus() {
+  return http<SyncState>({ method: 'GET', url: '/admin/sync/status' })
 }

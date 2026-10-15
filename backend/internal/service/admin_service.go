@@ -18,7 +18,7 @@ var (
 
 // 各类目允许的子分类
 var validSubCategory = map[string]map[string]bool{
-	model.AssetCategoryItem:  {"攻击": true, "法术": true, "防御": true, "移动": true, "消耗": true},
+	model.AssetCategoryItem:  {"攻击": true, "法术": true, "防御": true, "移动": true, "消耗": true, model.ItemSubOther: true},
 	model.AssetCategorySkill: {"召唤师技能": true},
 	model.AssetCategoryRune:  {"精密": true, "主宰": true, "巫术": true, "坚决": true, "启迪": true},
 }

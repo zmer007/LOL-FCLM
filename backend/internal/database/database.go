@@ -38,7 +38,7 @@ func Open(dsn string) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&model.User{}, &model.Hero{}, &model.GameAsset{}); err != nil {
+	if err := db.AutoMigrate(&model.User{}, &model.Hero{}, &model.GameAsset{}, &model.Setting{}); err != nil {
 		return nil, err
 	}
 	return db, nil

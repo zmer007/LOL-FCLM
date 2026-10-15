@@ -8,6 +8,7 @@ import (
 
 	"roadside-league/backend/internal/config"
 	"roadside-league/backend/internal/database"
+	"roadside-league/backend/internal/ddragon"
 	"roadside-league/backend/internal/handler"
 	"roadside-league/backend/internal/middleware"
 	"roadside-league/backend/internal/repository"
@@ -32,14 +33,17 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	heroRepo := repository.NewHeroRepository(db)
 	assetRepo := repository.NewAssetRepository(db)
+	settingRepo := repository.NewSettingRepository(db)
 
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTExpireHours)
 	adminService := service.NewAdminService(heroRepo, assetRepo, store)
 	adminUserService := service.NewAdminUserService(userRepo)
+	syncService := service.NewSyncService(ddragon.New(), heroRepo, assetRepo, settingRepo, store)
 
 	authHandler := handler.NewAuthHandler(authService)
 	adminHandler := handler.NewAdminHandler(adminService)
 	adminUserHandler := handler.NewAdminUserHandler(adminUserService)
+	syncHandler := handler.NewSyncHandler(syncService)
 
 	// 确保管理员账号存在（账号密码来自环境变量）
 	if err := authService.EnsureAdmin(cfg.AdminUsername, cfg.AdminPassword); err != nil {
@@ -84,6 +88,10 @@ func main() {
 			admin.PATCH("/users/:id/role", adminUserHandler.SetRole)
 			admin.POST("/users/:id/password", adminUserHandler.ResetPassword)
 			admin.DELETE("/users/:id", adminUserHandler.Delete)
+
+			// Data Dragon 数据同步（英雄/装备/召唤师技能/符文图标）
+			admin.POST("/sync/ddragon", syncHandler.Trigger)
+			admin.GET("/sync/status", syncHandler.Status)
 		}
 	}
 

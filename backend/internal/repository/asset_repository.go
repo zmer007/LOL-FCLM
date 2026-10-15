@@ -19,7 +19,7 @@ func (r *AssetRepository) Create(a *model.GameAsset) error {
 }
 
 func (r *AssetRepository) List(category, subCategory string) ([]model.GameAsset, error) {
-	q := r.db.Order("category ASC, sub_category ASC, id DESC")
+	q := r.db.Order("sub_category ASC, id ASC")
 	if category != "" {
 		q = q.Where("category = ?", category)
 	}
@@ -29,6 +29,24 @@ func (r *AssetRepository) List(category, subCategory string) ([]model.GameAsset,
 	var assets []model.GameAsset
 	err := q.Find(&assets).Error
 	return assets, err
+}
+
+// UpsertDDragon 按 category+name 插入或更新素材（同一分类下 Riot 名称唯一）。
+func (r *AssetRepository) UpsertDDragon(a *model.GameAsset) error {
+	var existing model.GameAsset
+	err := r.db.Where("category = ? AND name = ?", a.Category, a.Name).First(&existing).Error
+	if err == nil {
+		return r.db.Model(&existing).Updates(map[string]any{
+			"sub_category": a.SubCategory,
+			"ddragon_id":   a.DDragonID,
+			"version":      a.Version,
+			"icon":         a.Icon,
+		}).Error
+	}
+	if err != gorm.ErrRecordNotFound {
+		return err
+	}
+	return r.db.Create(a).Error
 }
 
 func (r *AssetRepository) UpdateIcon(id int64, icon string) error {
