@@ -47,12 +47,28 @@ func (r *HeroRepository) UpsertDDragon(h *model.Hero) error {
 			"title":       h.Title,
 			"ddragon_key": h.DDragonKey,
 			"avatar":      h.Avatar,
+			"aliases":     h.Aliases,
+			"roles":       h.Roles,
 		}).Error
 	}
 	if err != gorm.ErrRecordNotFound {
 		return err
 	}
 	return r.db.Create(h).Error
+}
+
+// UpdateMetaByDDragon 按英文 id 更新别名与官方定位；英雄不存在或内容无变化时不写库。
+func (r *HeroRepository) UpdateMetaByDDragon(ddID, aliases, roles string) error {
+	return r.db.Model(&model.Hero{}).
+		Where("ddragon_id = ? AND (aliases <> ? OR roles <> ?)", ddID, aliases, roles).
+		Updates(map[string]any{"aliases": aliases, "roles": roles}).Error
+}
+
+// UpdateAliasesByDDragon 只更新内置别名（启动时拉取官方定位失败的降级路径）。
+func (r *HeroRepository) UpdateAliasesByDDragon(ddID, aliases string) error {
+	return r.db.Model(&model.Hero{}).
+		Where("ddragon_id = ? AND aliases <> ?", ddID, aliases).
+		Update("aliases", aliases).Error
 }
 
 func (r *HeroRepository) UpdateAvatar(id int64, avatar string) error {

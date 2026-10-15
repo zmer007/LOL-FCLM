@@ -75,6 +75,48 @@ func (s *SyncService) State() SyncState {
 	return st
 }
 
+// BackfillMeta 启动时异步回填英雄元数据：
+// 别名来自内置表（必定回填），官方定位来自 Data Dragon tags（尽力拉取，失败不影响启动）。
+func (s *SyncService) BackfillMeta() {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		rolesByID := map[string][]string{}
+		version, _ := s.settings.Get(model.SettingDDragonVersion)
+		if version == "" {
+			if v, err := s.cli.LatestVersion(ctx); err == nil {
+				version = v
+			}
+		}
+		rolesOK := false
+		if version != "" {
+			if champs, err := s.cli.Champions(ctx, version); err == nil {
+				rolesOK = true
+				for id, ch := range champs.Data {
+					rolesByID[id] = ddragon.RolesFromTags(ch.Tags)
+				}
+			} else {
+				log.Printf("backfill roles fetch failed: %v", err)
+			}
+		}
+
+		for id, aliases := range ddragon.HeroAliases {
+			joined := model.JoinList(aliases)
+			var err error
+			if rolesOK {
+				err = s.heroes.UpdateMetaByDDragon(id, joined, model.JoinList(rolesByID[id]))
+			} else {
+				err = s.heroes.UpdateAliasesByDDragon(id, joined)
+			}
+			if err != nil {
+				log.Printf("WARN backfill hero meta %s failed: %v", id, err)
+			}
+		}
+		log.Printf("hero meta backfill finished (roles from datadragon: %v)", rolesOK)
+	}()
+}
+
 // Start 异步触发一次同步；已在运行时返回 ErrSyncRunning。
 func (s *SyncService) Start(force bool) error {
 	s.mu.Lock()
@@ -175,7 +217,10 @@ func (s *SyncService) run(force bool) error {
 			apply: func(url string) error {
 				return s.heroes.UpsertDDragon(&model.Hero{
 					Name: ch.Name, Title: ch.Title, Lane: "",
-					DDragonID: ch.ID, DDragonKey: ch.Key, Avatar: url,
+					DDragonID: ch.ID, DDragonKey: ch.Key,
+					Aliases: model.JoinList(ddragon.HeroAliases[ch.ID]),
+					Roles:   model.JoinList(ddragon.RolesFromTags(ch.Tags)),
+					Avatar:  url,
 				})
 			},
 		})

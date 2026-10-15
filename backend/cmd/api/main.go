@@ -41,6 +41,7 @@ func main() {
 	syncService := service.NewSyncService(ddragon.New(), heroRepo, assetRepo, settingRepo, store)
 
 	authHandler := handler.NewAuthHandler(authService)
+	heroHandler := handler.NewHeroHandler(heroRepo)
 	adminHandler := handler.NewAdminHandler(adminService)
 	adminUserHandler := handler.NewAdminUserHandler(adminUserService)
 	syncHandler := handler.NewSyncHandler(syncService)
@@ -49,6 +50,9 @@ func main() {
 	if err := authService.EnsureAdmin(cfg.AdminUsername, cfg.AdminPassword); err != nil {
 		log.Printf("WARN ensure admin failed: %v", err)
 	}
+
+	// 启动时异步回填英雄元数据：别名/分路（内置表）+ 定位（Data Dragon tags）
+	syncService.BackfillMeta()
 
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
@@ -65,6 +69,9 @@ func main() {
 		// 公开：注册 / 登录
 		api.POST("/auth/register", authHandler.Register)
 		api.POST("/auth/login", authHandler.Login)
+
+		// 公开：英雄只读数据（首页头像墙、英雄列表）
+		api.GET("/heroes", heroHandler.List)
 
 		// 需登录
 		api.GET("/me", middleware.RequiredAuth(authService), authHandler.Me)
