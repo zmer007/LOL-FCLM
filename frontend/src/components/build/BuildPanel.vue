@@ -134,4 +134,9 @@ const detailPath = computed(() =>
   font-style: normal;
   color: var(--cyan);
 }
+
+/* 展示态符文区整体左移 */
+.build-right :deep(.rune-page) {
+  margin-left: -30px;
+}
 </style>

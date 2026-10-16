@@ -1,40 +1,24 @@
 <template>
   <div class="rune-wrap">
-    <!-- 可编辑：主系 / 副系选择器 -->
-    <div v-if="editable" class="path-picker">
-      <div class="picker-group">
-        <span class="picker-label">主系</span>
-        <button
-          v-for="t in trees"
-          :key="'p' + t.id"
-          type="button"
-          class="pick"
-          :class="{ on: runes.primary === t.id, dis: runes.secondary === t.id }"
-          :title="t.name"
-          @click="setPrimary(t.id)"
-        >
-          <img :src="t.icon" :alt="t.name" />
-        </button>
-      </div>
-      <div class="picker-group">
-        <span class="picker-label">副系</span>
-        <button
-          v-for="t in trees"
-          :key="'s' + t.id"
-          type="button"
-          class="pick cyan"
-          :class="{ on: runes.secondary === t.id, dis: runes.primary === t.id }"
-          :title="t.name"
-          @click="setSecondary(t.id)"
-        >
-          <img :src="t.icon" :alt="t.name" />
-        </button>
-      </div>
-    </div>
-
-    <div v-if="runes.primary || runes.secondary" class="rune-page">
-      <!-- 主系：基石 + 三排 -->
+    <div v-if="editable || runes.primary || runes.secondary" class="rune-page">
+      <!-- 主系：系选择器 + 基石 + 三排 -->
       <div class="rune-path primary">
+        <div v-if="editable" class="path-picker-col">
+          <span class="picker-label">主系</span>
+          <div class="pick-row">
+            <button
+              v-for="t in trees"
+              :key="'p' + t.id"
+              type="button"
+              class="pick"
+              :class="{ on: runes.primary === t.id, dis: runes.secondary === t.id }"
+              :title="t.name"
+              @click="setPrimary(t.id)"
+            >
+              <img :src="t.icon" :alt="t.name" />
+            </button>
+          </div>
+        </div>
         <div class="rune-head">{{ primaryTree ? primaryTree.name : '主系符文' }}</div>
         <template v-if="primaryTree">
           <div
@@ -56,10 +40,40 @@
             </button>
           </div>
         </template>
+        <template v-else>
+          <div
+            v-for="row in [0, 1, 2, 3]"
+            :key="'ph' + row"
+            class="rune-candidates"
+            :class="{ keystone: row === 0 }"
+          >
+            <div
+              v-for="i in (row === 0 ? 4 : 3)"
+              :key="i"
+              class="rune-slot ph"
+            ></div>
+          </div>
+        </template>
       </div>
 
-      <!-- 副系：三排选两排 -->
+      <!-- 副系：系选择器 + 三排选两排 -->
       <div class="rune-path secondary">
+        <div v-if="editable" class="path-picker-col">
+          <span class="picker-label">副系</span>
+          <div class="pick-row">
+            <button
+              v-for="t in trees"
+              :key="'s' + t.id"
+              type="button"
+              class="pick cyan"
+              :class="{ on: runes.secondary === t.id, dis: runes.primary === t.id }"
+              :title="t.name"
+              @click="setSecondary(t.id)"
+            >
+              <img :src="t.icon" :alt="t.name" />
+            </button>
+          </div>
+        </div>
         <div class="rune-head">{{ secondaryTree ? secondaryTree.name : '副系符文' }}</div>
         <template v-if="secondaryTree">
           <div
@@ -78,6 +92,19 @@
             >
               <img :src="rn.icon" :alt="rn.name" />
             </button>
+          </div>
+        </template>
+        <template v-else>
+          <div
+            v-for="slotIdx in [0, 1, 2]"
+            :key="'ph' + slotIdx"
+            class="rune-candidates"
+          >
+            <div
+              v-for="i in 3"
+              :key="i"
+              class="rune-slot ph"
+            ></div>
           </div>
         </template>
       </div>
@@ -100,8 +127,6 @@
         </div>
       </div>
     </div>
-
-    <div v-else-if="editable" class="rune-empty">请先选择主系与副系符文</div>
   </div>
 </template>
 
@@ -165,21 +190,23 @@ function pickShard(row: number, col: number) {
 </script>
 
 <style scoped>
-.path-picker {
+.path-picker-col {
   display: flex;
-  gap: 26px;
-  margin-bottom: 18px;
-  flex-wrap: wrap;
-}
-.picker-group {
-  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
+  width: 100%;
+  gap: 6px;
+  margin-bottom: 8px;
 }
 .picker-label {
   font-size: 12px;
   color: var(--faint);
-  margin-right: 2px;
+}
+.pick-row {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: 6px;
 }
 .pick {
   width: 30px;
@@ -216,14 +243,21 @@ function pickShard(row: number, col: number) {
 
 .rune-page {
   display: flex;
-  justify-content: center;
-  gap: 30px;
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 26px;
 }
 .rune-path {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
+}
+.rune-path .rune-head + .rune-candidates {
+  margin-top: auto;
+}
+.shards .rune-head + .shard-row {
+  margin-top: auto;
 }
 .rune-head {
   font-size: 12px;
@@ -232,15 +266,15 @@ function pickShard(row: number, col: number) {
   white-space: nowrap;
 }
 .rune-path.secondary .rune-head {
-  margin-bottom: 54px;
+  margin-bottom: 8px;
 }
 .rune-candidates {
   display: flex;
   gap: 12px;
 }
 .rune-slot {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: #0a1520;
   border: 1.5px solid #2a3f55;
@@ -250,8 +284,8 @@ function pickShard(row: number, col: number) {
   overflow: hidden;
 }
 .rune-candidates.keystone .rune-slot {
-  width: 36px;
-  height: 36px;
+  width: 42px;
+  height: 42px;
 }
 .rune-slot img {
   width: 100%;
@@ -276,15 +310,15 @@ function pickShard(row: number, col: number) {
   border-left: 1px solid var(--line-soft);
 }
 .shards .rune-head {
-  margin-bottom: 58px;
+  margin-bottom: 8px;
 }
 .shard-row {
   display: flex;
   gap: 10px;
 }
 .shard {
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   background: #0a1520;
   border: 1.5px solid #2a3f55;
@@ -307,6 +341,10 @@ function pickShard(row: number, col: number) {
   text-align: center;
   font-size: 12.5px;
   color: var(--faint);
-  padding: 30px 0;
+  padding: 10px 0;
+}
+.rune-slot.ph {
+  opacity: 0.18;
+  border-style: dashed;
 }
 </style>
