@@ -46,6 +46,17 @@
         <p v-for="(p, i) in bodyParas" :key="i">{{ p }}</p>
       </div>
 
+      <div v-if="hasBuild" class="v-build">
+        <BuildBlock
+          :items="content.items"
+          :runes="content.runes"
+          :build-note="content.buildNote"
+          :asset-map="assetMap"
+          :trees="trees"
+          :shards="shards"
+        />
+      </div>
+
       <div class="v-actions">
         <button type="button" class="act" @click="toast('点赞功能即将上线')">▲ 点赞</button>
         <button type="button" class="act" @click="toast('收藏功能即将上线')">☆ 收藏</button>
@@ -63,13 +74,30 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { getContent, type Content } from '../../api/content'
+import { getAssetMap, type GameAsset } from '../../api/asset'
+import { getRuneTrees, type RuneTree, type Shard } from '../../api/build'
 import AdminAuditBar from '../../components/AdminAuditBar.vue'
+import BuildBlock from '../../components/build/BuildBlock.vue'
 
 const route = useRoute()
 const id = Number(route.params.id) || 0
 
 const loading = ref(true)
 const content = ref<Content | null>(null)
+const assetMap = ref<Map<number, GameAsset>>(new Map())
+const trees = ref<RuneTree[]>([])
+const shards = ref<Shard[][]>([])
+
+// 是否配置了任意装备或符文（决定是否展示装备符文区）
+const hasBuild = computed(() => {
+  const c = content.value
+  if (!c) return false
+  return (
+    Object.values(c.items).some((slots) => slots.some((s) => s !== null)) ||
+    c.runes.primary !== 0 ||
+    c.runes.secondary !== 0
+  )
+})
 
 const backLink = computed(() => ({
   path: '/matchup',
@@ -97,6 +125,10 @@ async function reload() {
 
 onMounted(async () => {
   try {
+    const [assets, runeData] = await Promise.all([getAssetMap(), getRuneTrees()])
+    assetMap.value = assets
+    trees.value = runeData.trees
+    shards.value = runeData.shards
     await reload()
   } finally {
     loading.value = false
@@ -218,6 +250,9 @@ onMounted(async () => {
 }
 .v-desc p {
   margin: 0 0 8px;
+}
+.v-build {
+  margin-top: 22px;
 }
 
 /* 操作栏 */
