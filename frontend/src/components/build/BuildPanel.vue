@@ -22,6 +22,7 @@
       <div class="build-right">
         <div class="block-title">推荐符文</div>
         <RunePage :runes="current.runes" :trees="trees" :shards="shards" />
+        <p v-if="current.buildNote" class="build-note">{{ current.buildNote }}</p>
       </div>
     </div>
 
@@ -109,6 +110,14 @@ const detailPath = computed(() =>
   font-weight: 700;
   color: var(--gold-bright);
   margin-bottom: 14px;
+}
+.build-note {
+  margin: 14px 0 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--mute);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .vs-line {
   margin-top: 14px;

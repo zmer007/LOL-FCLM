@@ -424,6 +424,8 @@ async function removeUser(u: AdminUser) {
               <ItemSlots :items="reviewPreview.items" :asset-map="reviewAssetMap" />
               <div class="pv-block-title pv-block-2">推荐符文</div>
               <RunePage :runes="reviewPreview.runes" :trees="reviewTrees" :shards="reviewShards" />
+              <div v-if="reviewPreview.buildNote" class="pv-block-title pv-block-2">装备符文思路</div>
+              <p v-if="reviewPreview.buildNote" class="pv-note">{{ reviewPreview.buildNote }}</p>
             </div>
           </div>
           <div v-if="reviewPreview.status === 'pending'" class="preview-foot">
@@ -1037,6 +1039,14 @@ async function removeUser(u: AdminUser) {
 }
 .pv-block-2 {
   margin-top: 20px;
+}
+.pv-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--mute);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .preview-foot {
   display: flex;

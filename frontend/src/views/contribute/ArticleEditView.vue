@@ -39,7 +39,15 @@
 
       <!-- 推荐装备 & 符文 -->
       <section class="card">
-        <BuildEditor :items="form.items" :runes="form.runes" :asset-map="assetMap" :trees="trees" :shards="shards" />
+        <BuildEditor
+          v-model:note="form.buildNote"
+          :items="form.items"
+          :runes="form.runes"
+          :asset-map="assetMap"
+          :trees="trees"
+          :shards="shards"
+          :touched="submitted"
+        />
       </section>
 
       <!-- 正文 -->
@@ -139,13 +147,24 @@ const form = ref<{
   opponentHeroId: number
   items: BuildItems
   runes: BuildRunes
+  buildNote: string
 }>({
   title: '',
   body: '',
   opponentHeroId: 0,
   items: emptyItems(),
   runes: emptyRunes(),
+  buildNote: '',
 })
+
+// 是否配置了任意装备或符文（思路随装备符文必填）
+function hasBuild() {
+  return (
+    Object.values(form.value.items).some((slots) => slots.some((s: number | null) => s !== null)) ||
+    form.value.runes.primary !== 0 ||
+    form.value.runes.secondary !== 0
+  )
+}
 
 const totalImages = computed(() => keptImages.value.length + newImages.value.length)
 const backLink = computed(() => ({ path: '/matchup', query: { champion: heroTitle.value } }))
@@ -184,6 +203,7 @@ function removeNew(i: number) {
 function validate(): string {
   if (!form.value.title.trim()) return '请填写标题'
   if (!form.value.opponentHeroId) return '请从候选中选择对位英雄'
+  if (hasBuild() && !form.value.buildNote.trim()) return '请填写这套装备符文的思路'
   if (!form.value.body.trim()) return '请填写正文'
   return ''
 }
@@ -205,6 +225,7 @@ async function submit() {
     durationSec: 0,
     items: form.value.items,
     runes: form.value.runes,
+    buildNote: form.value.buildNote.trim(),
     keptImages: keptImages.value,
   }
   saving.value = true
@@ -228,7 +249,14 @@ function resetForm() {
     return
   }
   done.value = false
-  form.value = { title: '', body: '', opponentHeroId: 0, items: emptyItems(), runes: emptyRunes() }
+  form.value = {
+    title: '',
+    body: '',
+    opponentHeroId: 0,
+    items: emptyItems(),
+    runes: emptyRunes(),
+    buildNote: '',
+  }
   keptImages.value = []
   clearNewImages()
   fileError.value = ''
@@ -264,6 +292,7 @@ onMounted(async () => {
         opponentHeroId: c.opponentId,
         items: c.items,
         runes: c.runes,
+        buildNote: c.buildNote ?? '',
       }
       keptImages.value = [...c.images]
     } else {

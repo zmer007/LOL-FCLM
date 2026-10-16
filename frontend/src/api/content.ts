@@ -28,6 +28,7 @@ export interface Content {
   images: string[]
   items: BuildItems
   runes: BuildRunes
+  buildNote: string
   views: number
   createdAt: string
   updatedAt: string
@@ -49,6 +50,7 @@ export interface HeroBuild {
   vs: string
   items: BuildItems
   runes: BuildRunes
+  buildNote: string
 }
 
 export interface ContentMeta {
@@ -60,6 +62,7 @@ export interface ContentMeta {
   durationSec: number
   items: BuildItems
   runes: BuildRunes
+  buildNote: string
   keptImages?: string[]
 }
 

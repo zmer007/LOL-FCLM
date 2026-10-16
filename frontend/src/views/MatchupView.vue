@@ -83,13 +83,7 @@
               <span class="video-badge" :class="badgeClass(c)">
                 {{ c.perspective === 'self' ? '操作你' : '被操作' }}
               </span>
-              <img
-                v-if="c.kind === 'article' && c.images[0]"
-                class="cover-img"
-                :src="c.images[0]"
-                alt=""
-              />
-              <div v-else class="cover-duo">
+              <div class="cover-duo">
                 <img :src="c.heroAvatar" alt="" />
                 <img :src="c.opponentAvatar" alt="" />
               </div>
@@ -517,13 +511,6 @@ function toast(msg: string) {
 .video-badge.con {
   background: var(--red);
   color: var(--gold-bright);
-}
-.cover-img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 .cover-duo {
   position: absolute;

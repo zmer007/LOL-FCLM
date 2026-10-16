@@ -26,6 +26,7 @@ type ContentInput struct {
 	DurationSec    int              `json:"durationSec"`
 	Items          model.BuildItems `json:"items"`
 	Runes          model.BuildRunes `json:"runes"`
+	BuildNote      string           `json:"buildNote"`  // 装备符文思路
 	KeptImages     []string         `json:"keptImages"` // 图文编辑时保留的旧图 URL
 }
 
@@ -54,6 +55,7 @@ type ContentVO struct {
 	Images         []string         `json:"images"`
 	Items          model.BuildItems `json:"items"`
 	Runes          model.BuildRunes `json:"runes"`
+	BuildNote      string           `json:"buildNote"`
 	Views          int              `json:"views"`
 	CreatedAt      string           `json:"createdAt"`
 	UpdatedAt      string           `json:"updatedAt"`
@@ -68,6 +70,7 @@ type BuildVO struct {
 	Vs        string           `json:"vs"` // 对位英雄短名
 	Items     model.BuildItems `json:"items"`
 	Runes     model.BuildRunes `json:"runes"`
+	BuildNote string           `json:"buildNote"`
 }
 
 type ContentService struct {
@@ -141,7 +144,7 @@ func (s *ContentService) Create(in ContentInput, fs FileSet, authorID int64) (*m
 	c := &model.Content{
 		AuthorID: authorID, HeroID: in.HeroID, OpponentHeroID: in.OpponentHeroID,
 		Kind: in.Kind, Title: in.Title, Body: in.Body, DurationSec: in.DurationSec,
-		VideoURL: videoURL, Images: images, Items: in.Items, Runes: in.Runes,
+		VideoURL: videoURL, Images: images, Items: in.Items, Runes: in.Runes, BuildNote: in.BuildNote,
 		Status: model.ContentPending,
 	}
 	if err := s.contents.Create(c); err != nil {
@@ -201,6 +204,7 @@ func (s *ContentService) Update(id, uid int64, isAdmin bool, in ContentInput, fs
 	c.DurationSec = in.DurationSec
 	c.Items = in.Items
 	c.Runes = in.Runes
+	c.BuildNote = in.BuildNote
 	c.VideoURL = videoURL
 	c.Images = images
 	c.Status = model.ContentPending // 重新审核
@@ -239,7 +243,7 @@ func (s *ContentService) Approve(id int64) error {
 	c.Approved = &model.ContentSnapshot{
 		Title: c.Title, Body: c.Body, VideoURL: c.VideoURL, DurationSec: c.DurationSec,
 		Images: c.Images, OpponentHeroID: c.OpponentHeroID,
-		Items: c.Items, Runes: c.Runes,
+		Items: c.Items, Runes: c.Runes, BuildNote: c.BuildNote,
 	}
 	c.Status = model.ContentApproved
 	c.RejectReason = ""
@@ -317,11 +321,11 @@ func (s *ContentService) enrich(list []model.Content, queryHeroID, viewerUID int
 		snap := c.Approved
 		if !useSnapshot || snap == nil {
 			vo.Title, vo.Body, vo.VideoURL, vo.DurationSec = c.Title, c.Body, c.VideoURL, c.DurationSec
-			vo.Images, vo.Items, vo.Runes = c.Images, c.Items, c.Runes
+			vo.Images, vo.Items, vo.Runes, vo.BuildNote = c.Images, c.Items, c.Runes, c.BuildNote
 			vo.OpponentName, vo.OpponentTitle, vo.OpponentAvatar, vo.OpponentID = fillHero(c.OpponentHeroID)
 		} else {
 			vo.Title, vo.Body, vo.VideoURL, vo.DurationSec = snap.Title, snap.Body, snap.VideoURL, snap.DurationSec
-			vo.Images, vo.Items, vo.Runes = snap.Images, snap.Items, snap.Runes
+			vo.Images, vo.Items, vo.Runes, vo.BuildNote = snap.Images, snap.Items, snap.Runes, snap.BuildNote
 			vo.OpponentName, vo.OpponentTitle, vo.OpponentAvatar, vo.OpponentID = fillHero(snap.OpponentHeroID)
 		}
 		out = append(out, vo)
@@ -426,7 +430,7 @@ func (s *ContentService) HeroBuilds(heroID int64) ([]BuildVO, error) {
 		}
 		out = append(out, BuildVO{
 			ContentID: c.ID, Kind: c.Kind, Title: snap.Title, Vs: vs,
-			Items: snap.Items, Runes: snap.Runes,
+			Items: snap.Items, Runes: snap.Runes, BuildNote: snap.BuildNote,
 		})
 	}
 	return out, nil
@@ -474,7 +478,19 @@ func (s *ContentService) validateInput(in *ContentInput) error {
 	if err := s.validateItems(in.Items); err != nil {
 		return err
 	}
-	return s.validateRunes(in.Runes)
+	if err := s.validateRunes(in.Runes); err != nil {
+		return err
+	}
+	in.BuildNote = strings.TrimSpace(in.BuildNote)
+	if !in.Items.IsEmpty() || !in.Runes.IsEmpty() {
+		if in.BuildNote == "" {
+			return &ValidationError{Msg: "请填写这套装备符文的思路"}
+		}
+	}
+	if utf8.RuneCountInString(in.BuildNote) > 500 {
+		return &ValidationError{Msg: "装备符文思路不能超过 500 字"}
+	}
+	return nil
 }
 
 func (s *ContentService) validateItems(items model.BuildItems) error {
