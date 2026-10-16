@@ -52,7 +52,7 @@ func main() {
 	authService := service.NewAuthService(userRepo, valkey, mailSvc, cfg.JWTSecret, cfg.JWTExpireHours, cfg.CodeTTLSeconds, cfg.CodeResendSeconds)
 	adminService := service.NewAdminService(heroRepo, assetRepo, store)
 	adminUserService := service.NewAdminUserService(userRepo)
-	contentService := service.NewContentService(contentRepo, heroRepo, userRepo, assetRepo, runeRepo, store)
+	contentService := service.NewContentService(contentRepo, heroRepo, userRepo, assetRepo, runeRepo, settingRepo, store)
 	syncService := service.NewSyncService(ddragon.New(), heroRepo, assetRepo, runeRepo, settingRepo, store)
 	messageService := service.NewMessageService(messageRepo, userRepo, valkey)
 

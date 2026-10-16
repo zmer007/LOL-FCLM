@@ -36,6 +36,7 @@
         <span class="up">UP主：{{ content.authorName }}</span>
         <span>浏览 {{ content.views }}</span>
         <span>{{ content.createdAt }}</span>
+        <span v-if="content.gameVersion" class="ver">游戏版本 {{ content.gameVersion }}</span>
       </div>
 
       <div class="article-body">
@@ -250,6 +251,13 @@ onMounted(async () => {
 }
 .a-meta .up {
   color: var(--mute);
+}
+.a-meta .ver {
+  color: var(--cyan);
+  border: 1px solid rgba(10, 200, 185, 0.5);
+  border-radius: 999px;
+  padding: 1px 10px;
+  font-size: 11.5px;
 }
 
 /* 正文 */

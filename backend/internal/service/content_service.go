@@ -58,6 +58,7 @@ type ContentVO struct {
 	Items          model.BuildItems `json:"items"`
 	Runes          model.BuildRunes `json:"runes"`
 	BuildNote      string           `json:"buildNote"`
+	GameVersion    string           `json:"gameVersion"`
 	Views          int              `json:"views"`
 	CreatedAt      string           `json:"createdAt"`
 	UpdatedAt      string           `json:"updatedAt"`
@@ -66,13 +67,14 @@ type ContentVO struct {
 
 // BuildVO 对线页提取的装备符文方案（来源于已通过内容）。
 type BuildVO struct {
-	ContentID int64            `json:"contentId"`
-	Kind      string           `json:"kind"`
-	Title     string           `json:"title"`
-	Vs        string           `json:"vs"` // 对位英雄短名
-	Items     model.BuildItems `json:"items"`
-	Runes     model.BuildRunes `json:"runes"`
-	BuildNote string           `json:"buildNote"`
+	ContentID   int64            `json:"contentId"`
+	Kind        string           `json:"kind"`
+	Title       string           `json:"title"`
+	Vs          string           `json:"vs"` // 对位英雄短名
+	Items       model.BuildItems `json:"items"`
+	Runes       model.BuildRunes `json:"runes"`
+	BuildNote   string           `json:"buildNote"`
+	GameVersion string           `json:"gameVersion"`
 }
 
 type ContentService struct {
@@ -81,6 +83,7 @@ type ContentService struct {
 	users    *repository.UserRepository
 	assets   *repository.AssetRepository
 	runes    *repository.RuneRepository
+	settings *repository.SettingRepository
 	store    *storage.LocalStore
 }
 
@@ -90,11 +93,18 @@ func NewContentService(
 	users *repository.UserRepository,
 	assets *repository.AssetRepository,
 	runes *repository.RuneRepository,
+	settings *repository.SettingRepository,
 	store *storage.LocalStore,
 ) *ContentService {
 	return &ContentService{
-		contents: contents, heroes: heroes, users: users, assets: assets, runes: runes, store: store,
+		contents: contents, heroes: heroes, users: users, assets: assets, runes: runes, settings: settings, store: store,
 	}
+}
+
+// currentGameVersion 读取当前已同步的 Data Dragon 版本号，失败时返回空串。
+func (s *ContentService) currentGameVersion() string {
+	v, _ := s.settings.Get(model.SettingDDragonVersion)
+	return v
 }
 
 // ---------- 投稿 / 编辑 ----------
@@ -148,7 +158,8 @@ func (s *ContentService) Create(in ContentInput, fs FileSet, authorID int64) (*m
 		Rank: in.Rank,
 		Kind: in.Kind, Title: in.Title, Body: in.Body, DurationSec: in.DurationSec,
 		VideoURL: videoURL, Images: images, Items: in.Items, Runes: in.Runes, BuildNote: in.BuildNote,
-		Status: model.ContentPending,
+		GameVersion: s.currentGameVersion(),
+		Status:      model.ContentPending,
 	}
 	if err := s.contents.Create(c); err != nil {
 		return nil, err
@@ -247,7 +258,7 @@ func (s *ContentService) Approve(id int64) error {
 	c.Approved = &model.ContentSnapshot{
 		Title: c.Title, Body: c.Body, VideoURL: c.VideoURL, DurationSec: c.DurationSec,
 		Images: c.Images, OpponentHeroID: c.OpponentHeroID, Rank: c.Rank,
-		Items: c.Items, Runes: c.Runes, BuildNote: c.BuildNote,
+		Items: c.Items, Runes: c.Runes, BuildNote: c.BuildNote, GameVersion: c.GameVersion,
 	}
 	c.Status = model.ContentApproved
 	c.RejectReason = ""
@@ -327,11 +338,13 @@ func (s *ContentService) enrich(list []model.Content, queryHeroID, viewerUID int
 			vo.Title, vo.Body, vo.VideoURL, vo.DurationSec = c.Title, c.Body, c.VideoURL, c.DurationSec
 			vo.Images, vo.Items, vo.Runes, vo.BuildNote = c.Images, c.Items, c.Runes, c.BuildNote
 			vo.Rank = c.Rank
+			vo.GameVersion = c.GameVersion
 			vo.OpponentName, vo.OpponentTitle, vo.OpponentAvatar, vo.OpponentID = fillHero(c.OpponentHeroID)
 		} else {
 			vo.Title, vo.Body, vo.VideoURL, vo.DurationSec = snap.Title, snap.Body, snap.VideoURL, snap.DurationSec
 			vo.Images, vo.Items, vo.Runes, vo.BuildNote = snap.Images, snap.Items, snap.Runes, snap.BuildNote
 			vo.Rank = snap.Rank
+			vo.GameVersion = snap.GameVersion
 			vo.OpponentName, vo.OpponentTitle, vo.OpponentAvatar, vo.OpponentID = fillHero(snap.OpponentHeroID)
 		}
 		out = append(out, vo)
@@ -436,7 +449,7 @@ func (s *ContentService) HeroBuilds(heroID int64) ([]BuildVO, error) {
 		}
 		out = append(out, BuildVO{
 			ContentID: c.ID, Kind: c.Kind, Title: snap.Title, Vs: vs,
-			Items: snap.Items, Runes: snap.Runes, BuildNote: snap.BuildNote,
+			Items: snap.Items, Runes: snap.Runes, BuildNote: snap.BuildNote, GameVersion: snap.GameVersion,
 		})
 	}
 	return out, nil

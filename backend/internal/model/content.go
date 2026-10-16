@@ -26,6 +26,7 @@ type ContentSnapshot struct {
 	Items          BuildItems `json:"items"`
 	Runes          BuildRunes `json:"runes"`
 	BuildNote      string     `json:"buildNote"` // 这套装备符文的思路
+	GameVersion    string     `json:"gameVersion"` // 创作时的游戏版本（Data Dragon 版本号）
 	ApprovedAt     time.Time  `json:"approvedAt"`
 }
 
@@ -45,6 +46,7 @@ type Content struct {
 	Items          BuildItems       `gorm:"type:json;serializer:json" json:"items"`
 	Runes          BuildRunes       `gorm:"type:json;serializer:json" json:"runes"`
 	BuildNote      string           `gorm:"size:500;not null;default:''" json:"buildNote"` // 装备符文思路，配置了装备/符文时必填
+	GameVersion    string           `gorm:"size:16;not null;default:''" json:"gameVersion"` // 创作时的游戏版本（Data Dragon 版本号）
 	Status         string           `gorm:"size:16;index;not null;default:'pending'" json:"status"`
 	RejectReason   string           `gorm:"size:255" json:"rejectReason"`
 	Approved       *ContentSnapshot `gorm:"type:json;serializer:json" json:"approved,omitempty"`

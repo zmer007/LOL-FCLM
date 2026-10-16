@@ -48,6 +48,7 @@
         <span class="up">UP主：{{ content.authorName }}</span>
         <span>播放量 {{ content.views }}</span>
         <span>{{ content.createdAt }}</span>
+        <span v-if="content.gameVersion" class="ver">游戏版本 {{ content.gameVersion }}</span>
       </div>
 
       <div v-if="content.body" class="v-desc">
@@ -270,6 +271,13 @@ onMounted(async () => {
 }
 .v-meta .up {
   color: var(--mute);
+}
+.v-meta .ver {
+  color: var(--cyan);
+  border: 1px solid rgba(10, 200, 185, 0.5);
+  border-radius: 999px;
+  padding: 1px 10px;
+  font-size: 11.5px;
 }
 
 /* 简介 */

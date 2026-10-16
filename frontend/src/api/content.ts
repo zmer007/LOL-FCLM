@@ -30,6 +30,7 @@ export interface Content {
   items: BuildItems
   runes: BuildRunes
   buildNote: string
+  gameVersion: string
   views: number
   createdAt: string
   updatedAt: string
@@ -52,6 +53,7 @@ export interface HeroBuild {
   items: BuildItems
   runes: BuildRunes
   buildNote: string
+  gameVersion: string
 }
 
 export interface ContentMeta {
