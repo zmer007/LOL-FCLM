@@ -3,6 +3,7 @@ import { http } from './http'
 export interface UserVO {
   id: number
   username: string
+  email: string
   avatar: string
   role: 'user' | 'admin'
   createdAt: string
@@ -13,19 +14,27 @@ export interface AuthData {
   user: UserVO
 }
 
-export function register(username: string, password: string) {
-  return http<AuthData>({
+export function sendCode(email: string) {
+  return http<{ msg: string }>({
     method: 'POST',
-    url: '/auth/register',
-    data: { username, password },
+    url: '/auth/send-code',
+    data: { email },
   })
 }
 
-export function login(username: string, password: string) {
+export function register(username: string, email: string, password: string, code: string) {
+  return http<AuthData>({
+    method: 'POST',
+    url: '/auth/register',
+    data: { username, email, password, code },
+  })
+}
+
+export function login(account: string, password: string) {
   return http<AuthData>({
     method: 'POST',
     url: '/auth/login',
-    data: { username, password },
+    data: { account, password },
   })
 }
 

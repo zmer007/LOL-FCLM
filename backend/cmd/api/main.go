@@ -2,9 +2,11 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 
 	"roadside-league/backend/internal/config"
 	"roadside-league/backend/internal/database"
@@ -29,6 +31,14 @@ func main() {
 	// 存储
 	store := storage.NewLocalStore(cfg.MediaRoot, cfg.MaxImageMB, cfg.MaxVideoMB)
 
+	// Valkey（Redis 协议）客户端，用于验证码等临时数据
+	valkey := redis.NewClient(&redis.Options{Addr: cfg.ValkeyAddr})
+	if err := valkey.Ping(context.Background()).Err(); err != nil {
+		log.Printf("WARN valkey ping failed: %v", err)
+	} else {
+		log.Printf("valkey connected: %s", cfg.ValkeyAddr)
+	}
+
 	// 依赖装配
 	userRepo := repository.NewUserRepository(db)
 	heroRepo := repository.NewHeroRepository(db)
@@ -36,12 +46,15 @@ func main() {
 	runeRepo := repository.NewRuneRepository(db)
 	contentRepo := repository.NewContentRepository(db)
 	settingRepo := repository.NewSettingRepository(db)
+	messageRepo := repository.NewMessageRepository(db)
 
-	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTExpireHours)
+	mailSvc := service.NewMailService(cfg)
+	authService := service.NewAuthService(userRepo, valkey, mailSvc, cfg.JWTSecret, cfg.JWTExpireHours, cfg.CodeTTLSeconds, cfg.CodeResendSeconds)
 	adminService := service.NewAdminService(heroRepo, assetRepo, store)
 	adminUserService := service.NewAdminUserService(userRepo)
 	contentService := service.NewContentService(contentRepo, heroRepo, userRepo, assetRepo, runeRepo, store)
 	syncService := service.NewSyncService(ddragon.New(), heroRepo, assetRepo, runeRepo, settingRepo, store)
+	messageService := service.NewMessageService(messageRepo, userRepo, valkey)
 
 	authHandler := handler.NewAuthHandler(authService)
 	heroHandler := handler.NewHeroHandler(heroRepo)
@@ -51,6 +64,7 @@ func main() {
 	adminHandler := handler.NewAdminHandler(adminService)
 	adminUserHandler := handler.NewAdminUserHandler(adminUserService)
 	syncHandler := handler.NewSyncHandler(syncService)
+	messageHandler := handler.NewMessageHandler(messageService)
 
 	// 确保管理员账号存在（账号密码来自环境变量）
 	if err := authService.EnsureAdmin(cfg.AdminUsername, cfg.AdminPassword); err != nil {
@@ -72,7 +86,8 @@ func main() {
 			response.OK(c, gin.H{"service": "lol-api", "status": "up"})
 		})
 
-		// 公开：注册 / 登录
+		// 公开：注册 / 登录 / 发送邮箱验证码
+		api.POST("/auth/send-code", authHandler.SendCode)
 		api.POST("/auth/register", authHandler.Register)
 		api.POST("/auth/login", authHandler.Login)
 
@@ -92,13 +107,21 @@ func main() {
 		// 需登录
 		api.GET("/me", middleware.RequiredAuth(authService), authHandler.Me)
 
-		// 投稿（视频/图文）与我的内容
+		// 我的内容（普通用户可查看自己的投稿记录，结果通常为空）+ 留言
 		auth := api.Group("", middleware.RequiredAuth(authService))
 		{
-			auth.POST("/contents", contentHandler.Create)
-			auth.PUT("/contents/:id", contentHandler.Update)
-			auth.DELETE("/contents/:id", contentHandler.Remove)
 			auth.GET("/my/contents", contentHandler.Mine)
+			// 普通用户给管理员留言
+			auth.POST("/messages", messageHandler.Send)
+			auth.GET("/messages/mine", messageHandler.Mine)
+		}
+
+		// 内容投稿（仅管理员，路径保持 /api/contents 不变）
+		adminPost := api.Group("", middleware.RequiredAuth(authService), middleware.RequireAdmin())
+		{
+			adminPost.POST("/contents", contentHandler.Create)
+			adminPost.PUT("/contents/:id", contentHandler.Update)
+			adminPost.DELETE("/contents/:id", contentHandler.Remove)
 		}
 
 		// 管理后台：登录 + 管理员
@@ -117,6 +140,9 @@ func main() {
 			admin.GET("/contents", contentHandler.AdminList)
 			admin.POST("/contents/:id/approve", contentHandler.Approve)
 			admin.POST("/contents/:id/reject", contentHandler.Reject)
+
+			// 用户留言管理
+			admin.GET("/messages", messageHandler.AdminList)
 
 			// 用户管理
 			admin.GET("/users", adminUserHandler.List)

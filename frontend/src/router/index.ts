@@ -38,17 +38,17 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
-      // 投稿：上传视频 / 发布图文（?champion= 新建，?id= 编辑自己的内容）
+      // 投稿：上传视频 / 发布图文（仅管理员）
       path: '/upload/video',
       name: 'video-edit',
       component: () => import('../views/contribute/VideoEditView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, requiresAdmin: true },
     },
     {
       path: '/upload/article',
       name: 'article-edit',
       component: () => import('../views/contribute/ArticleEditView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, requiresAdmin: true },
     },
     // 内容详情
     {
@@ -65,9 +65,18 @@ const router = createRouter({
 })
 
 // 登录守卫：未登录访问需鉴权页面时跳登录，并记录回跳地址
-router.beforeEach((to) => {
-  if (to.meta.requiresAuth && !localStorage.getItem(TOKEN_KEY)) {
+router.beforeEach(async (to) => {
+  const token = localStorage.getItem(TOKEN_KEY)
+  if (to.meta.requiresAuth && !token) {
     return { path: '/login', query: { redirect: to.fullPath } }
+  }
+  if (to.meta.requiresAdmin) {
+    const { useUserStore } = await import('../stores/user')
+    const store = useUserStore()
+    if (!store.user) await store.loadMe().catch(() => null)
+    if (store.user?.role !== 'admin') {
+      return { path: '/' }
+    }
   }
   return true
 })

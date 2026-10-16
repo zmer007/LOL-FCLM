@@ -1,11 +1,9 @@
-# syntax=docker/dockerfile:1
-
 # ---------- 构建阶段：Vite 打包静态产物 ----------
 FROM node:20-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm config set registry https://registry.npmmirror.com && npm install
 
 COPY . .
 RUN npm run build

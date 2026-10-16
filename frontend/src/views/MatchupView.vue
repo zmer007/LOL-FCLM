@@ -61,7 +61,7 @@
               type="text"
               placeholder="搜索对位英雄"
             />
-            <div class="post-buttons">
+            <div v-if="isAdmin" class="post-buttons">
               <button type="button" class="btn-ghost" @click="goUpload('video')">上传视频</button>
               <button type="button" class="btn-primary" @click="goUpload('article')">发布图文</button>
             </div>
@@ -123,7 +123,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { listHeroes, resolveHero, type Hero } from '../api/hero'
 import type { GameAsset } from '../api/asset'
@@ -137,6 +137,10 @@ import {
   type HeroBuild,
 } from '../api/content'
 import BuildPanel from '../components/build/BuildPanel.vue'
+import { useUserStore } from '../stores/user'
+
+const userStore = useUserStore()
+const isAdmin = computed(() => userStore.user?.role === 'admin')
 
 const PAGE_SIZE = 9
 

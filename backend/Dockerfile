@@ -1,11 +1,10 @@
-# syntax=docker/dockerfile:1
-
 # ---------- 构建阶段：同时编译 api 与 worker ----------
 FROM golang:1.26-alpine AS build
 WORKDIR /app
 
 # 先拷依赖清单，利用层缓存
 COPY go.mod go.sum ./
+ENV GOPROXY=https://goproxy.cn,direct
 RUN go mod download
 
 COPY . .

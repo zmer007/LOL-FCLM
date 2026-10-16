@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { listMyContents, type Content } from '../api/content'
+import { sendMessage, listMyMessages, type Message } from '../api/message'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -14,6 +15,12 @@ const loading = ref(true)
 const pendingList = computed(() => myContents.value.filter((c) => c.status === 'pending'))
 const rejectedList = computed(() => myContents.value.filter((c) => c.status === 'rejected'))
 const reviewing = computed(() => [...pendingList.value, ...rejectedList.value])
+
+// 留言功能
+const msgContent = ref('')
+const msgSubmitting = ref(false)
+const myMessages = ref<Message[]>([])
+const msgLoading = ref(false)
 
 function editPath(c: Content) {
   return { path: `/upload/${c.kind === 'video' ? 'video' : 'article'}`, query: { id: c.id } }
@@ -31,10 +38,42 @@ function toggleReason(id: number) {
   openReasonId.value = openReasonId.value === id ? null : id
 }
 
+async function submitMessage() {
+  const text = msgContent.value.trim()
+  if (!text) return
+  if (text.length > 500) {
+    alert('留言内容不能超过 500 字')
+    return
+  }
+  msgSubmitting.value = true
+  try {
+    await sendMessage(text)
+    msgContent.value = ''
+    await loadMessages()
+  } catch (e: any) {
+    alert(e?.message || '留言提交失败')
+  } finally {
+    msgSubmitting.value = false
+  }
+}
+
+async function loadMessages() {
+  msgLoading.value = true
+  try {
+    const res = await listMyMessages()
+    myMessages.value = res.list
+  } finally {
+    msgLoading.value = false
+  }
+}
+
 onMounted(async () => {
   try {
     await userStore.loadMe()
-    myContents.value = (await listMyContents()).list
+    if (isAdmin.value) {
+      myContents.value = (await listMyContents()).list
+    }
+    await loadMessages()
   } finally {
     loading.value = false
   }
@@ -67,8 +106,8 @@ function onLogout() {
       </div>
     </section>
 
-    <!-- 审批中（待审核 + 被拒绝） -->
-    <section v-if="reviewing.length" class="block">
+    <!-- 审批中（待审核 + 被拒绝）—— 仅管理员 -->
+    <section v-if="isAdmin && reviewing.length" class="block">
       <h2 class="block-title">审批中</h2>
       <div class="c-list">
         <div v-for="c in reviewing" :key="c.id" class="c-row">
@@ -94,8 +133,8 @@ function onLogout() {
       </div>
     </section>
 
-    <!-- 我的投稿（全部） -->
-    <section class="block">
+    <!-- 我的投稿（全部）—— 仅管理员 -->
+    <section v-if="isAdmin" class="block">
       <h2 class="block-title">我的投稿</h2>
       <div v-if="loading" class="c-tip">加载中…</div>
       <div v-else-if="!myContents.length" class="c-tip">还没有投稿，去英雄对线页上传视频或发布图文吧</div>
@@ -118,6 +157,45 @@ function onLogout() {
             >{{ c.rejectReason }}</button>
             <span class="c-time">{{ c.updatedAt }}</span>
             <RouterLink :to="editPath(c)" class="c-edit">编辑</RouterLink>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 给管理员留言 -->
+    <section class="block">
+      <h2 class="block-title">给管理员留言</h2>
+      <div class="msg-box">
+        <textarea
+          v-model="msgContent"
+          class="msg-textarea"
+          placeholder="有什么想对管理员说的？（最多 500 字，留言仅管理员可见）"
+          maxlength="500"
+          rows="4"
+        />
+        <div class="msg-foot">
+          <span class="msg-count">{{ msgContent.length }}/500</span>
+          <button
+            type="button"
+            class="msg-submit"
+            :disabled="!msgContent.trim() || msgSubmitting"
+            @click="submitMessage"
+          >{{ msgSubmitting ? '提交中…' : '提交留言' }}</button>
+        </div>
+      </div>
+      <div class="msg-history">
+        <h3 class="msg-history-title">我的留言记录</h3>
+        <div v-if="msgLoading" class="c-tip">加载中…</div>
+        <div v-else-if="!myMessages.length" class="c-tip">暂无留言</div>
+        <div v-else class="msg-list">
+          <div v-for="m in myMessages" :key="m.id" class="msg-item">
+            <div class="msg-item-content">{{ m.content }}</div>
+            <div class="msg-item-meta">
+              <span class="msg-item-status" :class="{ read: m.isRead }">
+                {{ m.isRead ? '已读' : '未读' }}
+              </span>
+              <span class="msg-item-time">{{ m.createdAt }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -352,5 +430,99 @@ function onLogout() {
 }
 .c-edit:hover {
   text-decoration: underline;
+}
+
+/* 留言 */
+.msg-box {
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  padding: 16px;
+}
+.msg-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13.5px;
+  line-height: 1.6;
+  resize: vertical;
+}
+.msg-textarea:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.msg-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+.msg-count {
+  font-size: 12px;
+  color: var(--faint);
+}
+.msg-submit {
+  font-family: inherit;
+  font-size: 13px;
+  color: #0a1428;
+  background: var(--gold);
+  border: none;
+  border-radius: 999px;
+  padding: 7px 22px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.msg-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.msg-history {
+  margin-top: 22px;
+}
+.msg-history-title {
+  font-size: 14px;
+  color: var(--gold-bright);
+  margin: 0 0 12px;
+}
+.msg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.msg-item {
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  padding: 12px 16px;
+}
+.msg-item-content {
+  font-size: 13.5px;
+  color: var(--text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.msg-item-meta {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+.msg-item-status {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 10px;
+  color: var(--faint);
+}
+.msg-item-status.read {
+  color: var(--cyan);
+  border-color: rgba(10, 200, 185, 0.5);
 }
 </style>
