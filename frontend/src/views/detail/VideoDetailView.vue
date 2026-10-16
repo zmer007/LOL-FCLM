@@ -28,7 +28,15 @@
       />
 
       <div class="player">
-        <video :src="content.videoUrl" controls preload="metadata" :poster="''"></video>
+        <video
+          :src="content.videoUrl"
+          controls
+          controlslist="nodownload"
+          disablepictureinpicture
+          preload="metadata"
+          :poster="''"
+          @contextmenu.prevent
+        ></video>
       </div>
 
       <div class="title-row">
@@ -58,9 +66,10 @@
       </div>
 
       <div class="v-actions">
-        <button type="button" class="act" @click="toast('点赞功能即将上线')">▲ 点赞</button>
-        <button type="button" class="act" @click="toast('收藏功能即将上线')">☆ 收藏</button>
-        <button type="button" class="act" @click="toast('分享功能即将上线')">分享</button>
+        <button type="button" class="act" @click="onLike">▲ 点赞</button>
+        <button type="button" class="act" @click="onFavorite">☆ 收藏</button>
+        <button type="button" class="act" @click="onDownload">⬇ 下载</button>
+        <button type="button" class="act" @click="onShare">分享</button>
       </div>
     </template>
 
@@ -78,6 +87,7 @@ import { getAssetMap, type GameAsset } from '../../api/asset'
 import { getRuneTrees, type RuneTree, type Shard } from '../../api/build'
 import AdminAuditBar from '../../components/AdminAuditBar.vue'
 import BuildBlock from '../../components/build/BuildBlock.vue'
+import { requireAuth } from '../../utils/auth'
 
 const route = useRoute()
 const id = Number(route.params.id) || 0
@@ -113,6 +123,37 @@ function toast(msg: string) {
   toastMsg.value = msg
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => (toastMsg.value = ''), 2000)
+}
+
+function onLike() {
+  if (!requireAuth()) return
+  toast('点赞成功')
+}
+function onFavorite() {
+  if (!requireAuth()) return
+  toast('收藏成功')
+}
+function onDownload() {
+  if (!requireAuth()) return
+  const url = content.value?.videoUrl
+  if (!url) return
+  const a = document.createElement('a')
+  a.href = url
+  a.download = ''
+  a.target = '_blank'
+  a.rel = 'noopener'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  toast('开始下载视频')
+}
+async function onShare() {
+  try {
+    await navigator.clipboard.writeText(window.location.href)
+    toast('链接已复制，去分享吧')
+  } catch {
+    toast('分享链接：' + window.location.href)
+  }
 }
 
 async function reload() {

@@ -22,6 +22,7 @@ type ContentSnapshot struct {
 	DurationSec    int        `json:"durationSec"`
 	Images         []string   `json:"images"`
 	OpponentHeroID int64      `json:"opponentHeroId"`
+	Rank           string     `json:"rank"`
 	Items          BuildItems `json:"items"`
 	Runes          BuildRunes `json:"runes"`
 	BuildNote      string     `json:"buildNote"` // 这套装备符文的思路
@@ -32,9 +33,10 @@ type ContentSnapshot struct {
 type Content struct {
 	ID             int64            `gorm:"primaryKey;autoIncrement" json:"id"`
 	AuthorID       int64            `gorm:"index;not null" json:"authorId"`
-	HeroID         int64            `gorm:"index;not null" json:"heroId"`       // 主视角英雄
-	OpponentHeroID int64            `gorm:"not null" json:"opponentHeroId"`     // 对位英雄
-	Kind           string           `gorm:"size:16;index;not null" json:"kind"` // video | article
+	HeroID         int64            `gorm:"index;not null" json:"heroId"`            // 主视角英雄
+	OpponentHeroID int64            `gorm:"not null" json:"opponentHeroId"`          // 对位英雄
+	Rank           string           `gorm:"size:16;not null;default:''" json:"rank"` // 段位（可选）
+	Kind           string           `gorm:"size:16;index;not null" json:"kind"`      // video | article
 	Title          string           `gorm:"size:120;not null" json:"title"`
 	Body           string           `gorm:"type:text" json:"body"` // 视频简介/图文正文
 	VideoURL       string           `gorm:"size:255" json:"videoUrl"`

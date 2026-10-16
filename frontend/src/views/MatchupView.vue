@@ -83,6 +83,7 @@
               <span class="video-badge" :class="badgeClass(c)">
                 {{ c.perspective === 'self' ? '操作你' : '被操作' }}
               </span>
+              <span v-if="c.rank" class="rank-badge">{{ c.rank }}</span>
               <div class="cover-duo">
                 <img :src="c.heroAvatar" alt="" />
                 <img :src="c.opponentAvatar" alt="" />
@@ -511,6 +512,22 @@ function toast(msg: string) {
 .video-badge.con {
   background: var(--red);
   color: var(--gold-bright);
+}
+.rank-badge {
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 3;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 5px 10px;
+  border-radius: 0 10px 0 8px;
+  background: rgba(10, 20, 30, 0.82);
+  color: var(--gold-bright);
+  border: 1px solid var(--gold);
+  border-top: none;
+  border-right: none;
 }
 .cover-duo {
   position: absolute;

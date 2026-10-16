@@ -19,6 +19,7 @@ export interface Content {
   opponentName: string
   opponentTitle: string
   opponentAvatar: string
+  rank: string
   perspective: 'self' | 'opponent' | ''
   canEdit: boolean
   title: string
@@ -56,6 +57,7 @@ export interface HeroBuild {
 export interface ContentMeta {
   heroId: number
   opponentHeroId: number
+  rank: string
   kind: ContentKind
   title: string
   body: string

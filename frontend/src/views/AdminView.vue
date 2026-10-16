@@ -408,7 +408,10 @@ async function removeUser(u: AdminUser) {
               class="pv-video"
               :src="reviewPreview.videoUrl"
               controls
+              controlslist="nodownload"
+              disablepictureinpicture
               preload="metadata"
+              @contextmenu.prevent
             ></video>
 
             <p v-if="reviewPreview.body" class="pv-text">{{ reviewPreview.body }}</p>

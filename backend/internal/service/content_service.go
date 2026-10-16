@@ -20,6 +20,7 @@ var (
 type ContentInput struct {
 	HeroID         int64            `json:"heroId"`
 	OpponentHeroID int64            `json:"opponentHeroId"`
+	Rank           string           `json:"rank"`
 	Kind           string           `json:"kind"`
 	Title          string           `json:"title"`
 	Body           string           `json:"body"`
@@ -46,6 +47,7 @@ type ContentVO struct {
 	OpponentName   string           `json:"opponentName"`
 	OpponentTitle  string           `json:"opponentTitle"`
 	OpponentAvatar string           `json:"opponentAvatar"`
+	Rank           string           `json:"rank"`
 	Perspective    string           `json:"perspective"` // 相对查询英雄：self=操作你 / opponent=被操作
 	CanEdit        bool             `json:"canEdit"`
 	Title          string           `json:"title"`
@@ -143,6 +145,7 @@ func (s *ContentService) Create(in ContentInput, fs FileSet, authorID int64) (*m
 
 	c := &model.Content{
 		AuthorID: authorID, HeroID: in.HeroID, OpponentHeroID: in.OpponentHeroID,
+		Rank: in.Rank,
 		Kind: in.Kind, Title: in.Title, Body: in.Body, DurationSec: in.DurationSec,
 		VideoURL: videoURL, Images: images, Items: in.Items, Runes: in.Runes, BuildNote: in.BuildNote,
 		Status: model.ContentPending,
@@ -198,6 +201,7 @@ func (s *ContentService) Update(id, uid int64, isAdmin bool, in ContentInput, fs
 
 	c.HeroID = in.HeroID
 	c.OpponentHeroID = in.OpponentHeroID
+	c.Rank = in.Rank
 	c.Kind = in.Kind
 	c.Title = in.Title
 	c.Body = in.Body
@@ -242,7 +246,7 @@ func (s *ContentService) Approve(id int64) error {
 	}
 	c.Approved = &model.ContentSnapshot{
 		Title: c.Title, Body: c.Body, VideoURL: c.VideoURL, DurationSec: c.DurationSec,
-		Images: c.Images, OpponentHeroID: c.OpponentHeroID,
+		Images: c.Images, OpponentHeroID: c.OpponentHeroID, Rank: c.Rank,
 		Items: c.Items, Runes: c.Runes, BuildNote: c.BuildNote,
 	}
 	c.Status = model.ContentApproved
@@ -322,10 +326,12 @@ func (s *ContentService) enrich(list []model.Content, queryHeroID, viewerUID int
 		if !useSnapshot || snap == nil {
 			vo.Title, vo.Body, vo.VideoURL, vo.DurationSec = c.Title, c.Body, c.VideoURL, c.DurationSec
 			vo.Images, vo.Items, vo.Runes, vo.BuildNote = c.Images, c.Items, c.Runes, c.BuildNote
+			vo.Rank = c.Rank
 			vo.OpponentName, vo.OpponentTitle, vo.OpponentAvatar, vo.OpponentID = fillHero(c.OpponentHeroID)
 		} else {
 			vo.Title, vo.Body, vo.VideoURL, vo.DurationSec = snap.Title, snap.Body, snap.VideoURL, snap.DurationSec
 			vo.Images, vo.Items, vo.Runes, vo.BuildNote = snap.Images, snap.Items, snap.Runes, snap.BuildNote
+			vo.Rank = snap.Rank
 			vo.OpponentName, vo.OpponentTitle, vo.OpponentAvatar, vo.OpponentID = fillHero(snap.OpponentHeroID)
 		}
 		out = append(out, vo)
@@ -489,6 +495,13 @@ func (s *ContentService) validateInput(in *ContentInput) error {
 	}
 	if utf8.RuneCountInString(in.BuildNote) > 500 {
 		return &ValidationError{Msg: "装备符文思路不能超过 500 字"}
+	}
+	in.Rank = strings.TrimSpace(in.Rank)
+	if in.Rank == "" {
+		return &ValidationError{Msg: "请选择段位"}
+	}
+	if !model.ValidRank(in.Rank) {
+		return &ValidationError{Msg: "段位不合法"}
 	}
 	return nil
 }

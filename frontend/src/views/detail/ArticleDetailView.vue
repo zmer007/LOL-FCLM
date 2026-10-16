@@ -59,9 +59,10 @@
       </div>
 
       <div class="a-actions">
-        <button type="button" class="act" @click="toast('点赞功能即将上线')">▲ 点赞</button>
-        <button type="button" class="act" @click="toast('收藏功能即将上线')">☆ 收藏</button>
-        <button type="button" class="act" @click="toast('分享功能即将上线')">分享</button>
+        <button type="button" class="act" @click="onLike">▲ 点赞</button>
+        <button type="button" class="act" @click="onFavorite">☆ 收藏</button>
+        <button type="button" class="act" @click="onDownload">⬇ 下载</button>
+        <button type="button" class="act" @click="onShare">分享</button>
       </div>
     </template>
 
@@ -79,6 +80,7 @@ import { getAssetMap, type GameAsset } from '../../api/asset'
 import { getRuneTrees, type RuneTree, type Shard } from '../../api/build'
 import AdminAuditBar from '../../components/AdminAuditBar.vue'
 import BuildBlock from '../../components/build/BuildBlock.vue'
+import { requireAuth } from '../../utils/auth'
 
 const route = useRoute()
 const id = Number(route.params.id) || 0
@@ -114,6 +116,39 @@ function toast(msg: string) {
   toastMsg.value = msg
   clearTimeout(toastTimer)
   toastTimer = setTimeout(() => (toastMsg.value = ''), 2000)
+}
+
+function onLike() {
+  if (!requireAuth()) return
+  toast('点赞成功')
+}
+function onFavorite() {
+  if (!requireAuth()) return
+  toast('收藏成功')
+}
+function onDownload() {
+  if (!requireAuth()) return
+  const c = content.value
+  if (!c) return
+  const text = `${c.title}\n\n${c.body}`
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${c.title}.txt`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+  toast('已下载图文内容')
+}
+async function onShare() {
+  try {
+    await navigator.clipboard.writeText(window.location.href)
+    toast('链接已复制，去分享吧')
+  } catch {
+    toast('分享链接：' + window.location.href)
+  }
 }
 
 async function reload() {

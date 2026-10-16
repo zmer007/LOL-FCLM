@@ -60,15 +60,23 @@
         <input v-model="form.title" class="text-input" type="text" maxlength="120" placeholder="一句话讲清这个视频的内容" />
       </section>
 
-      <!-- 对位英雄 -->
+      <!-- 对位英雄 & 段位 -->
       <section class="card">
-        <div class="field-label">对位英雄 <i>*</i></div>
-        <OpponentPicker
-          :heroes="heroes"
-          v-model="form.opponentHeroId"
-          :exclude-id="heroId"
-          :touched="submitted"
-        />
+        <div class="opp-rank-row">
+          <div class="opp-rank-col">
+            <div class="field-label">对位英雄 <i>*</i></div>
+            <OpponentPicker
+              :heroes="heroes"
+              v-model="form.opponentHeroId"
+              :exclude-id="heroId"
+              :touched="submitted"
+            />
+          </div>
+          <div class="opp-rank-col rank-col">
+            <div class="field-label">段位 <i>*</i></div>
+            <RankPicker v-model="form.rank" :touched="submitted" />
+          </div>
+        </div>
       </section>
 
       <!-- 推荐装备 & 符文 -->
@@ -116,6 +124,7 @@ import {
 } from '../../api/build'
 import { getContent, publishContent, updateContent, type ContentMeta } from '../../api/content'
 import OpponentPicker from '../../components/OpponentPicker.vue'
+import RankPicker from '../../components/RankPicker.vue'
 import BuildEditor from '../../components/build/BuildEditor.vue'
 
 const MAX_MB = 200
@@ -148,6 +157,7 @@ const form = ref<{
   title: string
   body: string
   opponentHeroId: number
+  rank: string
   items: BuildItems
   runes: BuildRunes
   buildNote: string
@@ -155,6 +165,7 @@ const form = ref<{
   title: '',
   body: '',
   opponentHeroId: 0,
+  rank: '',
   items: emptyItems(),
   runes: emptyRunes(),
   buildNote: '',
@@ -176,6 +187,7 @@ function blankForm() {
     title: '',
     body: '',
     opponentHeroId: 0,
+    rank: '',
     items: emptyItems(),
     runes: emptyRunes(),
     buildNote: '',
@@ -237,6 +249,7 @@ function clearVideo() {
 function validate(): string {
   if (!form.value.title.trim()) return '请填写标题'
   if (!form.value.opponentHeroId) return '请从候选中选择对位英雄'
+  if (!form.value.rank) return '请选择段位'
   if (hasBuild() && !form.value.buildNote.trim()) return '请填写这套装备符文的思路'
   if (!editId.value && !videoFile.value) return '请上传视频文件'
   return ''
@@ -253,6 +266,7 @@ async function submit() {
   const meta: ContentMeta = {
     heroId: heroId.value,
     opponentHeroId: form.value.opponentHeroId,
+    rank: form.value.rank,
     kind: 'video',
     title: form.value.title.trim(),
     body: form.value.body,
@@ -305,6 +319,7 @@ onMounted(async () => {
         title: c.title,
         body: c.body,
         opponentHeroId: c.opponentId,
+        rank: c.rank ?? '',
         items: c.items,
         runes: c.runes,
         buildNote: c.buildNote ?? '',
@@ -377,6 +392,23 @@ onMounted(async () => {
 .field-label i {
   font-style: normal;
   color: var(--red);
+}
+.field-label .hint {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--faint);
+}
+.opp-rank-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.opp-rank-col {
+  flex: 1;
+  min-width: 0;
+}
+.opp-rank-col.rank-col {
+  flex: 0 0 170px;
 }
 .text-input,
 .textarea {
