@@ -29,14 +29,20 @@
         </div>
       </div>
 
-      <!-- 推荐装备 & 符文 -->
+      <!-- 推荐装备 & 符文（提取自已通过内容） -->
       <section class="section">
         <h2 class="section-title">推荐装备 &amp; 符文</h2>
-        <BuildPanel v-if="plans.length" :plans="plans" :asset-map="assetMap" :trees="trees" :shards="shards" />
-        <div v-else class="muted-box">暂无官方推荐方案</div>
+        <BuildPanel
+          v-if="builds.length"
+          :builds="builds"
+          :asset-map="assetMap"
+          :trees="trees"
+          :shards="shards"
+        />
+        <div v-else class="muted-box">暂无推荐方案，欢迎投稿时补充装备与符文</div>
       </section>
 
-      <!-- 相关内容（视频/图文，里程碑4接通数据） -->
+      <!-- 相关内容 -->
       <section class="section">
         <div class="section-head">
           <h2 class="section-title">相关内容</h2>
@@ -47,21 +53,78 @@
                 :key="t.value"
                 type="button"
                 :class="{ active: typeFilter === t.value }"
-                @click="typeFilter = t.value"
+                @click="switchType(t.value)"
               >
                 {{ t.label }}
               </button>
             </div>
-            <input v-model="oppQuery" class="opp-search" type="text" placeholder="搜索对位英雄" />
+            <input
+              v-model="oppQuery"
+              class="opp-search"
+              type="text"
+              placeholder="搜索对位英雄"
+            />
             <div class="post-buttons">
-              <button type="button" class="btn-ghost" @click="toast('视频投稿功能即将上线')">上传视频</button>
-              <button type="button" class="btn-primary" @click="toast('图文投稿功能即将上线')">发布图文</button>
+              <button type="button" class="btn-ghost" @click="goUpload('video')">上传视频</button>
+              <button type="button" class="btn-primary" @click="goUpload('article')">发布图文</button>
             </div>
           </div>
         </div>
 
-        <!-- 九宫格：本期暂无数据 -->
-        <div class="empty">暂无相关内容</div>
+        <!-- 九宫格 -->
+        <div v-if="contents.length" class="video-grid">
+          <div
+            v-for="c in contents"
+            :key="c.id"
+            class="video-card"
+            @click="openContent(c)"
+          >
+            <div class="video-thumb" :class="[c.kind, badgeClass(c)]">
+              <span class="video-badge" :class="badgeClass(c)">
+                {{ c.perspective === 'self' ? '操作你' : '被操作' }}
+              </span>
+              <img
+                v-if="c.kind === 'article' && c.images[0]"
+                class="cover-img"
+                :src="c.images[0]"
+                alt=""
+              />
+              <div v-else class="cover-duo">
+                <img :src="c.heroAvatar" alt="" />
+                <img :src="c.opponentAvatar" alt="" />
+              </div>
+              <span v-if="c.kind === 'video'" class="play"></span>
+              <svg v-else class="doc-ic" width="34" height="34" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="M21 15l-5-5L5 21" />
+              </svg>
+              <span class="dur">
+                {{ c.kind === 'video' ? formatDur(c.durationSec) : `${c.images.length} 图` }}
+              </span>
+            </div>
+            <div class="video-title">{{ c.title }}</div>
+            <div class="video-meta">{{ c.authorName }} · {{ c.views }} {{ c.kind === 'video' ? '播放' : '阅读' }}</div>
+          </div>
+        </div>
+        <div v-else-if="!gridLoading" class="empty">暂无相关内容</div>
+        <div v-else class="empty">加载中…</div>
+
+        <!-- 分页 -->
+        <div v-if="totalPages > 1" class="pager">
+          <button type="button" :disabled="page === 1" @click="changePage(page - 1)">上一页</button>
+          <button
+            v-for="p in totalPages"
+            :key="p"
+            type="button"
+            :class="{ on: p === page }"
+            @click="changePage(p)"
+          >
+            {{ p }}
+          </button>
+          <button type="button" :disabled="page === totalPages" @click="changePage(page + 1)">下一页</button>
+        </div>
       </section>
     </template>
 
@@ -73,54 +136,120 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
-import { listHeroes, type Hero } from '../api/hero'
+import { onMounted, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { listHeroes, resolveHero, type Hero } from '../api/hero'
 import type { GameAsset } from '../api/asset'
 import { getAssetMap } from '../api/asset'
-import { getHeroPlans, getRuneTrees, type BuildPlan, type RuneTree, type Shard } from '../api/build'
+import { getRuneTrees, type RuneTree, type Shard } from '../api/build'
+import {
+  getHeroBuilds,
+  listContents,
+  type Content,
+  type ContentKind,
+  type HeroBuild,
+} from '../api/content'
 import BuildPanel from '../components/build/BuildPanel.vue'
+
+const PAGE_SIZE = 9
 
 const CONTENT_TYPES = [
   { label: '全部', value: '' },
   { label: '视频', value: 'video' },
   { label: '图文', value: 'article' },
 ] as const
+type TypeFilter = '' | ContentKind
 
 const route = useRoute()
+const router = useRouter()
 
 const loading = ref(true)
+const gridLoading = ref(false)
 const hero = ref<Hero | null>(null)
 const assetMap = ref<Map<number, GameAsset>>(new Map())
 const trees = ref<RuneTree[]>([])
 const shards = ref<Shard[][]>([])
-const plans = ref<BuildPlan[]>([])
+const builds = ref<HeroBuild[]>([])
 
-const typeFilter = ref<(typeof CONTENT_TYPES)[number]['value']>('')
+const typeFilter = ref<TypeFilter>('')
 const oppQuery = ref('')
+const oppId = ref<number | undefined>(undefined)
+const contents = ref<Content[]>([])
+const page = ref(1)
+const total = ref(0)
+const totalPages = ref(0)
 
 const queryName = String(route.query.champion ?? '')
 
-// 精确（短名/称号/别名）→ 包含 的两级匹配
-function resolveHero(list: Hero[], q: string): Hero | undefined {
-  const key = q.trim().toLowerCase()
-  if (!key) return undefined
-  const eq = (s: string) => s.toLowerCase() === key
-  const hit = list.find(
-    (h) => eq(h.title) || eq(h.name) || h.aliases.some(eq),
-  )
-  if (hit) return hit
-  return list.find(
-    (h) =>
-      h.title.toLowerCase().includes(key) ||
-      h.name.toLowerCase().includes(key) ||
-      h.aliases.some((a) => a.toLowerCase().includes(key)),
-  )
+let oppTimer: ReturnType<typeof setTimeout> | undefined
+let heroCache: Hero[] = []
+
+function badgeClass(c: Content) {
+  return c.perspective === 'self' ? 'pro' : 'con'
+}
+
+function formatDur(sec: number) {
+  if (!sec) return ''
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
+async function loadContents() {
+  if (!hero.value) return
+  gridLoading.value = true
+  try {
+    const res = await listContents({
+      heroId: hero.value.id,
+      opponentId: oppId.value,
+      kind: typeFilter.value,
+      page: page.value,
+    })
+    contents.value = res.list
+    total.value = res.total
+    totalPages.value = Math.max(1, Math.ceil(res.total / PAGE_SIZE))
+  } finally {
+    gridLoading.value = false
+  }
+}
+
+function switchType(t: TypeFilter) {
+  typeFilter.value = t
+  page.value = 1
+  loadContents()
+}
+function changePage(p: number) {
+  page.value = p
+  loadContents()
+  window.scrollTo({ top: 0 })
+}
+
+// 对位英雄搜索：关键词解析为英雄 id（解析不到则不过滤）
+watch(oppQuery, (q) => {
+  clearTimeout(oppTimer)
+  oppTimer = setTimeout(() => {
+    const key = q.trim()
+    const next = key ? resolveHero(heroCache, key)?.id : undefined
+    if (next !== oppId.value) {
+      oppId.value = next
+      page.value = 1
+      loadContents()
+    }
+  }, 300)
+})
+
+function goUpload(kind: ContentKind) {
+  if (!hero.value) return
+  router.push({ path: `/upload/${kind}`, query: { champion: hero.value.title } })
+}
+function openContent(c: Content) {
+  // 带上当前对线英雄：从「被操作」内容详情返回时仍回到本英雄对线页
+  router.push({ path: `/${c.kind}/${c.id}`, query: { champion: hero.value?.title ?? '' } })
 }
 
 onMounted(async () => {
   try {
-    const [{ list: heroes }, assets, runeData] = await Promise.all([
+    const [heroRes, assets, runeData] = await Promise.all([
       listHeroes(),
       getAssetMap(),
       getRuneTrees(),
@@ -128,11 +257,16 @@ onMounted(async () => {
     assetMap.value = assets
     trees.value = runeData.trees
     shards.value = runeData.shards
+    heroCache = heroRes.list
 
-    const matched = resolveHero(heroes, queryName)
+    const matched = resolveHero(heroRes.list, queryName)
     if (matched) {
       hero.value = matched
-      plans.value = (await getHeroPlans(matched.id)).list
+      const [buildRes] = await Promise.all([
+        getHeroBuilds(matched.id),
+        loadContents(),
+      ])
+      builds.value = buildRes.list
     }
   } finally {
     loading.value = false
@@ -335,6 +469,150 @@ function toast(msg: string) {
   border: 1px solid var(--gold);
   font-weight: 700;
 }
+
+/* 九宫格 */
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+.video-card {
+  cursor: pointer;
+  min-width: 0;
+}
+.video-thumb {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #0a1520;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.video-card:hover .video-thumb {
+  border-color: var(--gold);
+}
+.video-thumb.pro {
+  border-color: rgba(10, 200, 185, 0.55);
+}
+.video-thumb.con {
+  border-color: rgba(232, 64, 87, 0.55);
+}
+.video-badge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 5px 10px;
+  border-radius: 10px 0 8px 0;
+  color: #04141a;
+}
+.video-badge.pro {
+  background: var(--cyan);
+}
+.video-badge.con {
+  background: var(--red);
+  color: var(--gold-bright);
+}
+.cover-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cover-duo {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  opacity: 0.55;
+}
+.cover-duo img {
+  width: 50%;
+  height: 100%;
+  object-fit: cover;
+}
+.play {
+  position: relative;
+  z-index: 2;
+  width: 0;
+  height: 0;
+  border-left: 16px solid var(--faint);
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+}
+.video-card:hover .play {
+  border-left-color: var(--gold);
+}
+.doc-ic {
+  position: relative;
+  z-index: 2;
+  color: var(--faint);
+}
+.video-card:hover .doc-ic {
+  color: var(--gold);
+}
+.dur {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 3;
+  font-size: 11px;
+  color: var(--mute);
+  background: rgba(7, 14, 22, 0.75);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+.video-title {
+  margin-top: 9px;
+  font-size: 13px;
+  color: var(--gold-bright);
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.video-meta {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
+/* 分页 */
+.pager {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 26px;
+}
+.pager button {
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--faint);
+  min-width: 30px;
+  height: 28px;
+  padding: 0 8px;
+}
+.pager button:hover {
+  color: var(--mute);
+}
+.pager button.on {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.pager button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .empty {
   background: var(--panel);
   border: 1px dashed var(--line);

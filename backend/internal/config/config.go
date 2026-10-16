@@ -15,7 +15,8 @@ type Config struct {
 	JWTExpireHours int    // JWT 有效期（小时）
 	AdminUsername  string // 启动时确保存在的管理员账号
 	AdminPassword  string
-	MaxImageMB     int // 图标上传大小上限（MB）
+	MaxImageMB     int // 图片上传大小上限（MB）
+	MaxVideoMB     int // 投稿视频大小上限（MB）
 }
 
 func Load() Config {
@@ -29,6 +30,7 @@ func Load() Config {
 		AdminUsername:  getenv("ADMIN_USERNAME", "admin"),
 		AdminPassword:  getenv("ADMIN_PASSWORD", "admin12345"),
 		MaxImageMB:     getenvInt("MAX_IMAGE_MB", 5),
+		MaxVideoMB:     getenvInt("MAX_VIDEO_MB", 200),
 	}
 }
 

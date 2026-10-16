@@ -44,6 +44,22 @@ func (r *HeroRepository) Exists(id int64) (bool, error) {
 	return n > 0, err
 }
 
+// FindByIDs 按主键批量查询，返回 id→英雄 map。
+func (r *HeroRepository) FindByIDs(ids []int64) (map[int64]*model.Hero, error) {
+	out := make(map[int64]*model.Hero, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var heroes []model.Hero
+	if err := r.db.Where("id IN ?", ids).Find(&heroes).Error; err != nil {
+		return nil, err
+	}
+	for i := range heroes {
+		out[heroes[i].ID] = &heroes[i]
+	}
+	return out, nil
+}
+
 // UpsertDDragon 按 Data Dragon id 插入或更新英雄；保留管理员维护的 Lane 不变。
 func (r *HeroRepository) UpsertDDragon(h *model.Hero) error {
 	var existing model.Hero

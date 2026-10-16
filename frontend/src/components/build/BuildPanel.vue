@@ -3,14 +3,14 @@
     <!-- 多方案数字 tab -->
     <div class="plan-tabs">
       <button
-        v-for="p in plans"
-        :key="p.id"
+        v-for="(p, i) in builds"
+        :key="p.contentId"
         type="button"
         class="plan-tab"
-        :class="{ active: activeId === p.id }"
-        @click="activeId = p.id"
+        :class="{ active: activeIdx === i }"
+        @click="activeIdx = i"
       >
-        {{ p.seq }}
+        {{ i + 1 }}
       </button>
     </div>
 
@@ -25,33 +25,44 @@
       </div>
     </div>
 
-    <div v-if="current.vs" class="vs-line">适用于对抗：<em>{{ current.vs }}</em></div>
+    <div class="vs-line">
+      <RouterLink class="src-link" :to="detailPath">
+        {{ current.title }}<em v-if="current.vs"> · 适用于对抗：{{ current.vs }}</em>
+      </RouterLink>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import type { BuildPlan, RuneTree, Shard } from '../../api/build'
+import { RouterLink } from 'vue-router'
+import type { RuneTree, Shard } from '../../api/build'
+import type { HeroBuild } from '../../api/content'
 import type { GameAsset } from '../../api/asset'
 import ItemSlots from './ItemSlots.vue'
 import RunePage from './RunePage.vue'
 
 const props = defineProps<{
-  plans: BuildPlan[]
+  builds: HeroBuild[]
   assetMap: Map<number, GameAsset>
   trees: RuneTree[]
   shards: Shard[][]
 }>()
 
-const activeId = ref(props.plans[0]?.id ?? 0)
+const activeIdx = ref(0)
 watch(
-  () => props.plans,
+  () => props.builds,
   (list) => {
-    if (!list.some((p) => p.id === activeId.value)) activeId.value = list[0]?.id ?? 0
+    if (activeIdx.value >= list.length) activeIdx.value = 0
   },
 )
 
-const current = computed(() => props.plans.find((p) => p.id === activeId.value))
+const current = computed(() => props.builds[activeIdx.value])
+const detailPath = computed(() =>
+  current.value
+    ? `/${current.value.kind === 'video' ? 'video' : 'article'}/${current.value.contentId}`
+    : '/',
+)
 </script>
 
 <style scoped>
@@ -102,9 +113,15 @@ const current = computed(() => props.plans.find((p) => p.id === activeId.value))
 .vs-line {
   margin-top: 14px;
   font-size: 12.5px;
-  color: var(--faint);
 }
-.vs-line em {
+.src-link {
+  color: var(--faint);
+  text-decoration: none;
+}
+.src-link:hover {
+  color: var(--gold);
+}
+.src-link em {
   font-style: normal;
   color: var(--cyan);
 }

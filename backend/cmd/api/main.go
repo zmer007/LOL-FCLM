@@ -27,27 +27,27 @@ func main() {
 	}
 
 	// 存储
-	store := storage.NewLocalStore(cfg.MediaRoot, cfg.MaxImageMB)
+	store := storage.NewLocalStore(cfg.MediaRoot, cfg.MaxImageMB, cfg.MaxVideoMB)
 
 	// 依赖装配
 	userRepo := repository.NewUserRepository(db)
 	heroRepo := repository.NewHeroRepository(db)
 	assetRepo := repository.NewAssetRepository(db)
 	runeRepo := repository.NewRuneRepository(db)
-	buildPlanRepo := repository.NewBuildPlanRepository(db)
+	contentRepo := repository.NewContentRepository(db)
 	settingRepo := repository.NewSettingRepository(db)
 
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cfg.JWTExpireHours)
 	adminService := service.NewAdminService(heroRepo, assetRepo, store)
 	adminUserService := service.NewAdminUserService(userRepo)
-	buildPlanService := service.NewBuildPlanService(heroRepo, assetRepo, runeRepo, buildPlanRepo)
+	contentService := service.NewContentService(contentRepo, heroRepo, userRepo, assetRepo, runeRepo, store)
 	syncService := service.NewSyncService(ddragon.New(), heroRepo, assetRepo, runeRepo, settingRepo, store)
 
 	authHandler := handler.NewAuthHandler(authService)
 	heroHandler := handler.NewHeroHandler(heroRepo)
 	assetHandler := handler.NewAssetHandler(assetRepo)
 	runeHandler := handler.NewRuneHandler(runeRepo, store)
-	buildHandler := handler.NewBuildHandler(buildPlanService)
+	contentHandler := handler.NewContentHandler(contentService)
 	adminHandler := handler.NewAdminHandler(adminService)
 	adminUserHandler := handler.NewAdminUserHandler(adminUserService)
 	syncHandler := handler.NewSyncHandler(syncService)
@@ -79,13 +79,27 @@ func main() {
 		// 公开：英雄只读数据（首页头像墙、英雄列表）
 		api.GET("/heroes", heroHandler.List)
 
-		// 公开：游戏素材（装备/召唤师技能）、结构化符文树+属性碎片、英雄装备符文方案
+		// 公开：游戏素材（装备/召唤师技能）、结构化符文树+属性碎片
 		api.GET("/assets", assetHandler.List)
 		api.GET("/rune-trees", runeHandler.Trees)
-		api.GET("/heroes/:heroId/plans", buildHandler.ListByHero)
+
+		// 公开：内容（视频/图文）。详情挂可选鉴权以识别作者本人/管理员看未过审内容
+		api.GET("/contents", contentHandler.List)
+		api.GET("/contents/:id", middleware.OptionalAuth(authService), contentHandler.Detail)
+		// 从某英雄的已通过内容提取推荐装备符文
+		api.GET("/heroes/:heroId/builds", contentHandler.HeroBuilds)
 
 		// 需登录
 		api.GET("/me", middleware.RequiredAuth(authService), authHandler.Me)
+
+		// 投稿（视频/图文）与我的内容
+		auth := api.Group("", middleware.RequiredAuth(authService))
+		{
+			auth.POST("/contents", contentHandler.Create)
+			auth.PUT("/contents/:id", contentHandler.Update)
+			auth.DELETE("/contents/:id", contentHandler.Remove)
+			auth.GET("/my/contents", contentHandler.Mine)
+		}
 
 		// 管理后台：登录 + 管理员
 		admin := api.Group("/admin", middleware.RequiredAuth(authService), middleware.RequireAdmin())
@@ -93,13 +107,16 @@ func main() {
 			admin.GET("/heroes", adminHandler.ListHeroes)
 			admin.POST("/heroes", adminHandler.CreateHero)
 			admin.POST("/heroes/:id/avatar", adminHandler.UploadHeroAvatar)
-			// 整英雄批量替换装备符文方案（空数组=清空）
-			admin.PUT("/heroes/:id/plans", buildHandler.Replace)
 
 			admin.GET("/assets", adminHandler.ListAssets)
 			admin.POST("/assets", adminHandler.CreateAsset)
 			admin.POST("/assets/:id/icon", adminHandler.UploadAssetIcon)
 			admin.DELETE("/assets/:id", adminHandler.DeleteAsset)
+
+			// 内容审批
+			admin.GET("/contents", contentHandler.AdminList)
+			admin.POST("/contents/:id/approve", contentHandler.Approve)
+			admin.POST("/contents/:id/reject", contentHandler.Reject)
 
 			// 用户管理
 			admin.GET("/users", adminUserHandler.List)

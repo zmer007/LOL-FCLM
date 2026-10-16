@@ -38,11 +38,28 @@ const router = createRouter({
       meta: { requiresAuth: true },
     },
     {
-      // 管理员制作英雄推荐装备 & 符文方案（页内再校验管理员角色）
-      path: '/build',
-      name: 'build-editor',
-      component: () => import('../views/BuildEditorView.vue'),
+      // 投稿：上传视频 / 发布图文（?champion= 新建，?id= 编辑自己的内容）
+      path: '/upload/video',
+      name: 'video-edit',
+      component: () => import('../views/contribute/VideoEditView.vue'),
       meta: { requiresAuth: true },
+    },
+    {
+      path: '/upload/article',
+      name: 'article-edit',
+      component: () => import('../views/contribute/ArticleEditView.vue'),
+      meta: { requiresAuth: true },
+    },
+    // 内容详情
+    {
+      path: '/video/:id',
+      name: 'video-detail',
+      component: () => import('../views/detail/VideoDetailView.vue'),
+    },
+    {
+      path: '/article/:id',
+      name: 'article-detail',
+      component: () => import('../views/detail/ArticleDetailView.vue'),
     },
   ],
 })

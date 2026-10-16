@@ -14,3 +14,18 @@ export interface Hero {
 export function listHeroes(lane = '') {
   return http<{ list: Hero[] }>({ method: 'GET', url: '/heroes', params: { lane } })
 }
+
+// 两级匹配：先精确（短名/称号/别名），再包含匹配
+export function resolveHero(list: Hero[], q: string): Hero | undefined {
+  const key = q.trim().toLowerCase()
+  if (!key) return undefined
+  const eq = (s: string) => s.toLowerCase() === key
+  const hit = list.find((h) => eq(h.title) || eq(h.name) || h.aliases.some(eq))
+  if (hit) return hit
+  return list.find(
+    (h) =>
+      h.title.toLowerCase().includes(key) ||
+      h.name.toLowerCase().includes(key) ||
+      h.aliases.some((a) => a.toLowerCase().includes(key)),
+  )
+}

@@ -31,7 +31,7 @@ export interface RuneData {
   shards: Shard[][] // 3 行 × 3 列
 }
 
-// ---------- 装备符文方案 ----------
+// ---------- 装备符文（内嵌在视频/图文投稿中） ----------
 
 export interface BuildItems {
   start: (number | null)[] // 出门装 2
@@ -46,42 +46,14 @@ export interface BuildRunes {
   primaryPicks: number[] // [基石, 排1, 排2, 排3]
   secondary: number // 副系 id
   secondaryPicks: (number | null)[] // 三排选两排，null=该排不选
-  shards: number[] // 三行各选列索引 0-2
+  shards: number[] // 三行各选列索引 0-2，-1=未选
 }
-
-export interface BuildPlan {
-  id: number
-  heroId: number
-  seq: number
-  authorId: number
-  vs: string
-  items: BuildItems
-  runes: BuildRunes
-  createdAt: string
-  updatedAt: string
-}
-
-// 提交给后端的单套方案（不含 id/序号/作者）。
-export type PlanInput = Pick<BuildPlan, 'vs' | 'items' | 'runes'>
 
 export function getRuneTrees() {
   return http<RuneData>({ method: 'GET', url: '/rune-trees' })
 }
 
-export function getHeroPlans(heroId: number) {
-  return http<{ list: BuildPlan[] }>({ method: 'GET', url: `/heroes/${heroId}/plans` })
-}
-
-// 整英雄批量替换方案（空数组=清空），仅管理员。
-export function saveHeroPlans(heroId: number, plans: PlanInput[]) {
-  return http<{ list: BuildPlan[] }>({
-    method: 'PUT',
-    url: `/admin/heroes/${heroId}/plans`,
-    data: { plans },
-  })
-}
-
-// 生成一套空方案（制作器新增时用）。
+// 生成一套空装备/符文（投稿页新增时用）。
 export function emptyItems(): BuildItems {
   return {
     start: [null, null],

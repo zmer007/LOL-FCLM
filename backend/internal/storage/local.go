@@ -4,6 +4,7 @@ package storage
 import (
 	"errors"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -28,7 +29,7 @@ func invalidImage(msg string) error {
 }
 
 // 允许的图片扩展名 → 落盘扩展名
-var allowedExt = map[string]string{
+var allowedImageExt = map[string]string{
 	".png":  ".png",
 	".jpg":  ".jpg",
 	".jpeg": ".jpg",
@@ -37,45 +38,53 @@ var allowedExt = map[string]string{
 	".svg":  ".svg",
 }
 
-type LocalStore struct {
-	root      string // 文件根目录（容器内 /data/media）
-	urlPrefix string // 对外 URL 前缀
-	maxBytes  int64
+var allowedVideoExt = map[string]string{
+	".mp4": ".mp4",
 }
 
-func NewLocalStore(root string, maxImageMB int) *LocalStore {
+type LocalStore struct {
+	root          string // 文件根目录（容器内 /data/media）
+	urlPrefix     string // 对外 URL 前缀
+	maxImageBytes int64
+	maxVideoBytes int64
+}
+
+func NewLocalStore(root string, maxImageMB, maxVideoMB int) *LocalStore {
 	return &LocalStore{
-		root:      root,
-		urlPrefix: "/media",
-		maxBytes:  int64(maxImageMB) * 1024 * 1024,
+		root:          root,
+		urlPrefix:     "/media",
+		maxImageBytes: int64(maxImageMB) * 1024 * 1024,
+		maxVideoBytes: int64(maxVideoMB) * 1024 * 1024,
 	}
 }
 
-// SaveIcon 保存上传的图标文件，返回可访问的相对 URL（/media/icons/yyyymm/uuid.ext）。
-func (s *LocalStore) SaveIcon(filename string, contentType string, src io.Reader, size int64) (string, error) {
-	if size <= 0 || size > s.maxBytes {
+// saveFile 通用用户上传落盘：category 一级目录 + yyyymm 二级目录 + uuid 命名。
+// sniff 为 nil 时跳过文件头校验；否则读取前 512 字节校验真实类型。
+func (s *LocalStore) saveFile(
+	category, filename string, src io.Reader, size, maxBytes int64,
+	allowExt map[string]string, errMsg string, sniff func(detected string) bool,
+) (string, error) {
+	if size <= 0 || size > maxBytes {
 		return "", invalidImage("文件大小需大于 0 且不超过上传上限")
 	}
-
 	ext := strings.ToLower(filepath.Ext(filename))
-	savedExt, ok := allowedExt[ext]
+	savedExt, ok := allowExt[ext]
 	if !ok {
-		return "", invalidImage("仅支持 png/jpg/jpeg/webp/gif/svg 格式")
+		return "", invalidImage(errMsg)
 	}
 
-	// SVG 是文本，无法用 http.DetectContentType 判定，单独放行；其余校验真实文件头
-	if ext != ".svg" {
+	if sniff != nil {
 		head := make([]byte, 512)
 		n, _ := io.ReadFull(src, head)
 		detected := http.DetectContentType(head[:n])
-		if !strings.HasPrefix(detected, "image/") {
-			return "", invalidImage("文件内容不是有效图片")
+		if !sniff(detected) {
+			return "", invalidImage(errMsg)
 		}
 		src = io.MultiReader(strings.NewReader(string(head[:n])), src)
 	}
 
 	month := time.Now().Format("200601")
-	dir := filepath.Join(s.root, "icons", month)
+	dir := filepath.Join(s.root, category, month)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
@@ -90,8 +99,39 @@ func (s *LocalStore) SaveIcon(filename string, contentType string, src io.Reader
 	if _, err := io.Copy(f, src); err != nil {
 		return "", err
 	}
+	return s.urlPrefix + "/" + category + "/" + month + "/" + name, nil
+}
 
-	return s.urlPrefix + "/icons/" + month + "/" + name, nil
+// SaveIcon 保存上传的图标文件，返回 /media/icons/yyyymm/uuid.ext。
+func (s *LocalStore) SaveIcon(filename string, contentType string, src io.Reader, size int64) (string, error) {
+	return s.saveFile("icons", filename, src, size, s.maxImageBytes, allowedImageExt,
+		"仅支持 png/jpg/jpeg/webp/gif/svg 格式", func(detected string) bool {
+			// SVG 为文本，DetectContentType 判为 text/xml 或 image/svg+xml，一并放行
+			return strings.HasPrefix(detected, "image/") || strings.Contains(detected, "xml")
+		})
+}
+
+// SaveArticleImage 保存图文插图，目录 /media/images/yyyymm/。
+func (s *LocalStore) SaveArticleImage(filename string, src io.Reader, size int64) (string, error) {
+	return s.saveFile("images", filename, src, size, s.maxImageBytes, allowedImageExt,
+		"仅支持 png/jpg/jpeg/webp/gif 图片", func(detected string) bool {
+			return strings.HasPrefix(detected, "image/")
+		})
+}
+
+// SaveVideo 保存投稿视频（multipart 流式落盘），目录 /media/videos/yyyymm/，仅 mp4。
+func (s *LocalStore) SaveVideo(fh *multipart.FileHeader) (string, error) {
+	src, err := fh.Open()
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
+	return s.saveFile("videos", fh.Filename, src, fh.Size, s.maxVideoBytes, allowedVideoExt,
+		"仅支持 MP4 格式视频", func(detected string) bool {
+			// 部分 mp4 的 ftyp 品牌不在 Go 内置表，会被判为 octet-stream；结合扩展名一并放行
+			return detected == "video/mp4" || detected == "application/octet-stream" ||
+				detected == "video/quicktime"
+		})
 }
 
 // SaveIconFile 保存服务端从可信来源（Data Dragon CDN）下载的图标，
@@ -145,5 +185,5 @@ func safeIconName(name string) bool {
 	if filepath.Base(name) != name {
 		return false
 	}
-	return allowedExt[strings.ToLower(filepath.Ext(name))] != ""
+	return allowedImageExt[strings.ToLower(filepath.Ext(name))] != ""
 }

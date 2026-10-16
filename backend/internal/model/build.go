@@ -1,8 +1,6 @@
 package model
 
-import "time"
-
-// 装备五分区槽位数（与设计稿/制作器严格一致）。
+// 装备五分区槽位数（与设计稿/投稿页严格一致）。
 const (
 	BuildStageStartSlots = 2 // 出门装
 	BuildStageSummsSlots = 2 // 召唤师技能（与出门装并排）
@@ -26,7 +24,7 @@ type BuildItems struct {
 //	Primary/Secondary 为符文系 id；两者不能相同。
 //	PrimaryPicks 长度 4 = [基石, 第1排, 第2排, 第3排]，存官方符文 id（0 表示未选）。
 //	SecondaryPicks 长度 3 = 副系三排，每排可选一个或不选（nil=该排不选；规则上 3 排选 2 排）。
-//	Shards 长度 3，每行选中 0-2 的列索引。
+//	Shards 长度 3，每行选中 0-2 的列索引（-1 表示未选）。
 type BuildRunes struct {
 	Primary        int64    `json:"primary"`
 	PrimaryPicks   []int64  `json:"primaryPicks"`
@@ -35,17 +33,18 @@ type BuildRunes struct {
 	Shards         []int    `json:"shards"`
 }
 
-// BuildPlan 英雄的一套推荐装备 & 符文方案，由管理员维护。
-type BuildPlan struct {
-	ID        int64      `gorm:"primaryKey;autoIncrement" json:"id"`
-	HeroID    int64      `gorm:"not null;uniqueIndex:idx_hero_seq,priority:1" json:"heroId"`
-	Seq       int        `gorm:"not null;uniqueIndex:idx_hero_seq,priority:2" json:"seq"`
-	AuthorID  int64      `gorm:"not null" json:"authorId"`
-	Vs        string     `gorm:"size:255" json:"vs"`
-	Items     BuildItems `gorm:"type:json;serializer:json" json:"items"`
-	Runes     BuildRunes `gorm:"type:json;serializer:json" json:"runes"`
-	CreatedAt time.Time  `json:"createdAt"`
-	UpdatedAt time.Time  `json:"updatedAt"`
+// IsEmpty 判断整套装备符文是否都未配置（对线页提取方案时过滤）。
+func (b *BuildItems) IsEmpty() bool {
+	for _, slots := range [][]*int64{b.Start, b.Summs, b.Mid, b.Core, b.Final} {
+		for _, p := range slots {
+			if p != nil {
+				return false
+			}
+		}
+	}
+	return true
 }
 
-func (BuildPlan) TableName() string { return "build_plans" }
+func (r *BuildRunes) IsEmpty() bool {
+	return r.Primary == 0 && r.Secondary == 0
+}

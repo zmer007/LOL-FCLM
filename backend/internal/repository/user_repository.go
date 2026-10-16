@@ -53,6 +53,22 @@ func (r *UserRepository) List() ([]model.User, error) {
 	return users, err
 }
 
+// FindByIDs 按主键批量查询，返回 id→用户 map。
+func (r *UserRepository) FindByIDs(ids []int64) (map[int64]*model.User, error) {
+	out := make(map[int64]*model.User, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var users []model.User
+	if err := r.db.Where("id IN ?", ids).Find(&users).Error; err != nil {
+		return nil, err
+	}
+	for i := range users {
+		out[users[i].ID] = &users[i]
+	}
+	return out, nil
+}
+
 func (r *UserRepository) UpdateStatus(id int64, status string) error {
 	return r.updateColumn(id, "status", status)
 }

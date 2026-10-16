@@ -18,20 +18,42 @@ import {
   setUserStatus,
   triggerSync,
 } from '../api/admin'
+import {
+  approveContent,
+  listReviewContents,
+  rejectContent,
+  type Content,
+} from '../api/content'
+import { getAssetMap } from '../api/asset'
+import { getRuneTrees, type RuneTree, type Shard } from '../api/build'
+import ItemSlots from '../components/build/ItemSlots.vue'
+import RunePage from '../components/build/RunePage.vue'
 
 const userStore = useUserStore()
 const isAdmin = ref(false)
 const checking = ref(true)
 
-type TabKey = 'users' | 'hero' | AssetCategory
+type TabKey = 'review' | 'users' | 'hero' | AssetCategory
 const tabs: { key: TabKey; label: string }[] = [
+  { key: 'review', label: '内容审批' },
   { key: 'users', label: '用户管理' },
   { key: 'hero', label: '英雄头像' },
   { key: 'item', label: '装备图标' },
   { key: 'skill', label: '召唤师技能' },
   { key: 'rune', label: '符文图标' },
 ]
-const activeTab = ref<TabKey>('users')
+const activeTab = ref<TabKey>('review')
+
+// 内容审批
+const reviewList = ref<Content[]>([])
+const reviewStatus = ref<'pending' | 'rejected'>('pending')
+const reviewPage = ref(1)
+const reviewTotalPages = ref(1)
+const reviewPreview = ref<Content | null>(null)
+const reviewAssetMap = ref<Map<number, GameAsset>>(new Map())
+const reviewTrees = ref<RuneTree[]>([])
+const reviewShards = ref<Shard[][]>([])
+let reviewMetaLoaded = false
 
 // 装备子分类（与后端同步归类一致）
 const ITEM_SUBS = ['攻击', '法术', '防御', '移动', '消耗', '其他']
@@ -70,7 +92,9 @@ async function loadData() {
   loading.value = true
   errorMsg.value = ''
   try {
-    if (activeTab.value === 'hero') {
+    if (activeTab.value === 'review') {
+      await loadReview()
+    } else if (activeTab.value === 'hero') {
       heroes.value = (await listHeroes()).list
     } else if (activeTab.value === 'users') {
       users.value = (await listUsers()).list
@@ -81,6 +105,63 @@ async function loadData() {
     errorMsg.value = (e as Error).message
   } finally {
     loading.value = false
+  }
+}
+
+// ---------- 内容审批 ----------
+
+async function loadReview() {
+  const res = await listReviewContents(reviewStatus.value, reviewPage.value)
+  reviewList.value = res.list
+  reviewTotalPages.value = Math.max(1, Math.ceil(res.total / res.size))
+}
+
+function switchReviewStatus(s: 'pending' | 'rejected') {
+  reviewStatus.value = s
+  reviewPage.value = 1
+  loadData()
+}
+
+async function openPreview(c: Content) {
+  reviewPreview.value = c
+  if (!reviewMetaLoaded) {
+    reviewMetaLoaded = true
+    try {
+      const [assets, runeData] = await Promise.all([getAssetMap(), getRuneTrees()])
+      reviewAssetMap.value = assets
+      reviewTrees.value = runeData.trees
+      reviewShards.value = runeData.shards
+    } catch {
+      reviewMetaLoaded = false
+    }
+  }
+}
+
+async function doApprove(c: Content) {
+  errorMsg.value = ''
+  try {
+    await approveContent(c.id)
+    reviewPreview.value = null
+    await loadData()
+  } catch (e) {
+    errorMsg.value = (e as Error).message
+  }
+}
+
+async function doReject(c: Content) {
+  const reason = window.prompt('请填写拒绝理由（将通知投稿者）：', c.rejectReason || '')
+  if (reason === null) return
+  if (!reason.trim()) {
+    errorMsg.value = '拒绝理由不能为空'
+    return
+  }
+  errorMsg.value = ''
+  try {
+    await rejectContent(c.id, reason.trim())
+    reviewPreview.value = null
+    await loadData()
+  } catch (e) {
+    errorMsg.value = (e as Error).message
   }
 }
 
@@ -244,6 +325,113 @@ async function removeUser(u: AdminUser) {
       </div>
 
       <p v-if="errorMsg" class="admin-error">{{ errorMsg }}</p>
+
+      <!-- 内容审批面板 -->
+      <section v-if="activeTab === 'review'" class="panel">
+        <div class="review-sub">
+          <button
+            class="chip"
+            :class="{ on: reviewStatus === 'pending' }"
+            @click="switchReviewStatus('pending')"
+          >待审核</button>
+          <button
+            class="chip"
+            :class="{ on: reviewStatus === 'rejected' }"
+            @click="switchReviewStatus('rejected')"
+          >已拒绝</button>
+        </div>
+
+        <div v-if="loading" class="admin-tip">加载中…</div>
+        <table v-else-if="reviewList.length" class="utable">
+          <thead>
+            <tr>
+              <th>类型</th>
+              <th>标题</th>
+              <th>投稿者</th>
+              <th>对线</th>
+              <th>提交时间</th>
+              <th class="col-actions">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="c in reviewList" :key="c.id">
+              <td>{{ c.kind === 'video' ? '视频' : '图文' }}</td>
+              <td class="u-name">
+                {{ c.title }}
+                <span v-if="c.status === 'rejected' && c.rejectReason" class="reject-reason">
+                  （{{ c.rejectReason }}）
+                </span>
+              </td>
+              <td>{{ c.authorName }}</td>
+              <td class="u-time">{{ c.heroTitle }} vs {{ c.opponentTitle }}</td>
+              <td class="u-time">{{ c.createdAt }}</td>
+              <td class="col-actions">
+                <button class="link-btn" @click="openPreview(c)">预览</button>
+                <button v-if="c.status === 'pending'" class="link-btn text-ok" @click="doApprove(c)">通过</button>
+                <button class="link-btn text-danger" @click="doReject(c)">拒绝</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else class="admin-tip">
+          {{ reviewStatus === 'pending' ? '没有待审核的内容' : '没有被拒绝的内容' }}
+        </p>
+
+        <div v-if="reviewTotalPages > 1" class="pager">
+          <button :disabled="reviewPage === 1" @click="reviewPage--; loadData()">上一页</button>
+          <button
+            v-for="p in reviewTotalPages"
+            :key="p"
+            :class="{ on: p === reviewPage }"
+            @click="reviewPage = p; loadData()"
+          >{{ p }}</button>
+          <button :disabled="reviewPage === reviewTotalPages" @click="reviewPage++; loadData()">下一页</button>
+        </div>
+      </section>
+
+      <!-- 审批预览弹层 -->
+      <div v-if="reviewPreview" class="preview-mask" @click.self="reviewPreview = null">
+        <div class="preview-dialog">
+          <div class="preview-head">
+            <span>内容预览 · {{ reviewPreview.kind === 'video' ? '视频' : '图文' }}</span>
+            <button class="preview-close" @click="reviewPreview = null">×</button>
+          </div>
+          <div class="preview-body">
+            <h3 class="pv-title">{{ reviewPreview.title }}</h3>
+            <div class="pv-meta">
+              {{ reviewPreview.authorName }} · {{ reviewPreview.heroTitle }} vs {{ reviewPreview.opponentTitle }}
+              · {{ reviewPreview.createdAt }}
+            </div>
+
+            <video
+              v-if="reviewPreview.kind === 'video' && reviewPreview.videoUrl"
+              class="pv-video"
+              :src="reviewPreview.videoUrl"
+              controls
+              preload="metadata"
+            ></video>
+
+            <p v-if="reviewPreview.body" class="pv-text">{{ reviewPreview.body }}</p>
+
+            <div v-if="reviewPreview.images.length" class="pv-imgs">
+              <a v-for="(img, i) in reviewPreview.images" :key="i" :href="img" target="_blank">
+                <img :src="img" :alt="`配图 ${i + 1}`" />
+              </a>
+            </div>
+
+            <div v-if="!reviewPreview.items.start.every((s) => s === null) || reviewPreview.runes.primary" class="pv-build">
+              <div class="pv-block-title">推荐装备</div>
+              <ItemSlots :items="reviewPreview.items" :asset-map="reviewAssetMap" />
+              <div class="pv-block-title pv-block-2">推荐符文</div>
+              <RunePage :runes="reviewPreview.runes" :trees="reviewTrees" :shards="reviewShards" />
+            </div>
+          </div>
+          <div v-if="reviewPreview.status === 'pending'" class="preview-foot">
+            <button class="pv-btn reject" @click="doReject(reviewPreview)">拒绝</button>
+            <button class="pv-btn approve" @click="doApprove(reviewPreview)">通过</button>
+          </div>
+        </div>
+      </div>
 
       <!-- 用户管理面板 -->
       <section v-if="activeTab === 'users'" class="panel">
@@ -711,5 +899,168 @@ async function removeUser(u: AdminUser) {
 }
 .link-btn.text-danger {
   color: var(--red);
+}
+.reject-reason {
+  color: var(--red);
+  font-size: 11.5px;
+}
+
+/* 审批子筛选 / 分页 */
+.review-sub {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.pager {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 22px;
+}
+.pager button {
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--faint);
+  min-width: 30px;
+  height: 28px;
+  padding: 0 8px;
+}
+.pager button.on {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.pager button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* 审批预览弹层 */
+.preview-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: grid;
+  place-items: center;
+  z-index: 90;
+  padding: 24px;
+}
+.preview-dialog {
+  width: min(720px, 94vw);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-2);
+  border: 1px solid var(--gold);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gold-bright);
+  border-bottom: 1px solid var(--line);
+}
+.preview-close {
+  background: none;
+  border: none;
+  color: var(--faint);
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+}
+.preview-close:hover {
+  color: var(--gold);
+}
+.preview-body {
+  padding: 18px 20px;
+  overflow-y: auto;
+}
+.pv-title {
+  margin: 0 0 8px;
+  font-size: 17px;
+  color: var(--gold-bright);
+}
+.pv-meta {
+  font-size: 12px;
+  color: var(--faint);
+  margin-bottom: 14px;
+}
+.pv-video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+.pv-text {
+  font-size: 13.5px;
+  color: var(--mute);
+  line-height: 1.9;
+  white-space: pre-wrap;
+  margin: 0 0 14px;
+}
+.pv-imgs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.pv-imgs a {
+  display: block;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+.pv-imgs img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pv-build {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.pv-block-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gold-bright);
+  margin-bottom: 12px;
+}
+.pv-block-2 {
+  margin-top: 20px;
+}
+.preview-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--line);
+}
+.pv-btn {
+  font-family: inherit;
+  font-size: 13px;
+  border-radius: 8px;
+  padding: 8px 26px;
+  cursor: pointer;
+}
+.pv-btn.reject {
+  background: none;
+  border: 1px solid var(--red);
+  color: var(--red);
+}
+.pv-btn.approve {
+  background: var(--gold);
+  border: 1px solid var(--gold);
+  color: #0a1428;
+  font-weight: 700;
 }
 </style>

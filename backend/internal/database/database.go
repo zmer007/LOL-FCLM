@@ -40,7 +40,7 @@ func Open(dsn string) (*gorm.DB, error) {
 
 	if err := db.AutoMigrate(
 		&model.User{}, &model.Hero{}, &model.GameAsset{}, &model.Setting{},
-		&model.RuneTree{}, &model.Rune{}, &model.BuildPlan{},
+		&model.RuneTree{}, &model.Rune{}, &model.Content{},
 	); err != nil {
 		return nil, err
 	}
