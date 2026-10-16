@@ -179,7 +179,7 @@ onMounted(async () => {
 
 <style scoped>
 .detail-page {
-  max-width: 900px;
+  max-width: 1080px;
   margin: 0 auto;
   padding: 24px 24px 60px;
 }

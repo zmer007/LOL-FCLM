@@ -45,6 +45,10 @@ defineProps<{
   flex: 1;
   min-width: 0;
 }
+/* 展示态符文区整体左移，与对线页对齐 */
+.build-right :deep(.rune-page) {
+  margin-left: -30px;
+}
 .block-title {
   font-size: 13px;
   font-weight: 700;
