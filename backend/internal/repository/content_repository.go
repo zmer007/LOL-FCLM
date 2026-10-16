@@ -114,3 +114,10 @@ func (r *ContentRepository) IncrViews(id int64) error {
 	return r.db.Model(&model.Content{}).Where("id = ?", id).
 		UpdateColumn("views", gorm.Expr("views + 1")).Error
 }
+
+// ListAll 获取全部内容（按 ID 升序，用于导出备份）。
+func (r *ContentRepository) ListAll() ([]model.Content, error) {
+	var list []model.Content
+	err := r.db.Order("id ASC").Find(&list).Error
+	return list, err
+}

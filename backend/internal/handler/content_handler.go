@@ -246,5 +246,54 @@ func atoiDefault(s string, def int) int {
 	return def
 }
 
+// ---------- 批量导入 / 导出 ----------
+
+// Export GET /api/admin/contents/export
+// 以 JSON 文件形式下载全部内容。
+func (h *ContentHandler) Export(c *gin.Context) {
+	data, err := h.svc.ExportAll()
+	if err != nil {
+		response.Fail(c, 500, 500, "导出失败")
+		return
+	}
+	c.Header("Content-Type", "application/json; charset=utf-8")
+	c.Header("Content-Disposition", `attachment; filename="contents-export.json"`)
+	c.Data(200, "application/json; charset=utf-8", data)
+}
+
+// Import POST /api/admin/contents/import
+// 上传 contents-export.json 批量恢复内容。
+func (h *ContentHandler) Import(c *gin.Context) {
+	uid := middleware.UserID(c)
+	fh, err := c.FormFile("file")
+	if err != nil {
+		response.Fail(c, 400, 400, "请选择要导入的 JSON 文件")
+		return
+	}
+	f, err := fh.Open()
+	if err != nil {
+		response.Fail(c, 400, 400, "读取文件失败")
+		return
+	}
+	defer f.Close()
+
+	buf := make([]byte, fh.Size)
+	if _, err := f.Read(buf); err != nil {
+		response.Fail(c, 400, 400, "读取文件失败")
+		return
+	}
+
+	n, err := h.svc.Import(buf, uid)
+	if ve := asValidation(err); ve != nil {
+		response.Fail(c, 400, 400, ve.Msg)
+		return
+	}
+	if err != nil {
+		response.Fail(c, 500, 500, "导入失败")
+		return
+	}
+	response.OK(c, gin.H{"imported": n})
+}
+
 // 确保 multipart.FileHeader 类型被引用（parseSubmit 的 FileSet 字段类型）。
 var _ = func(_ *multipart.FileHeader) {}

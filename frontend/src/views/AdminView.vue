@@ -9,7 +9,9 @@ import {
   type SyncState,
   addUser,
   deleteUser,
+  exportContents,
   getSyncStatus,
+  importContents,
   listAssets,
   listHeroes,
   listUsers,
@@ -167,6 +169,46 @@ async function doReject(c: Content) {
     await loadData()
   } catch (e) {
     errorMsg.value = (e as Error).message
+  }
+}
+
+// ---------- 批量导入 / 导出 ----------
+
+const importFileInput = ref<HTMLInputElement | null>(null)
+
+async function doExport() {
+  errorMsg.value = ''
+  try {
+    const blob = await exportContents()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `contents-export-${new Date().toISOString().slice(0, 10)}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  } catch (e) {
+    errorMsg.value = '导出失败：' + (e as Error).message
+  }
+}
+
+function doImportClick() {
+  importFileInput.value?.click()
+}
+
+async function onImportFileChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  errorMsg.value = ''
+  try {
+    const res = await importContents(file)
+    errorMsg.value = `成功导入 ${res.imported} 条内容`
+    await loadData()
+  } catch (err) {
+    errorMsg.value = '导入失败：' + (err as Error).message
   }
 }
 
@@ -344,6 +386,16 @@ async function removeUser(u: AdminUser) {
             :class="{ on: reviewStatus === 'rejected' }"
             @click="switchReviewStatus('rejected')"
           >已拒绝</button>
+          <span class="review-spacer"></span>
+          <button class="btn small" @click="doExport">导出全部</button>
+          <button class="btn small" @click="doImportClick">导入</button>
+          <input
+            ref="importFileInput"
+            type="file"
+            accept="application/json,.json"
+            style="display: none"
+            @change="onImportFileChange"
+          />
         </div>
 
         <div v-if="loading" class="admin-tip">加载中…</div>
@@ -934,7 +986,21 @@ async function removeUser(u: AdminUser) {
 .review-sub {
   display: flex;
   gap: 8px;
+  align-items: center;
   margin-bottom: 18px;
+}
+.review-spacer {
+  flex: 1;
+}
+.btn.small {
+  height: 30px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  background: #1e3a5f;
+  color: #c9d6e8;
+}
+.btn.small:hover:not(:disabled) {
+  background: #2a4d78;
 }
 .pager {
   display: flex;

@@ -140,6 +140,8 @@ func main() {
 			admin.GET("/contents", contentHandler.AdminList)
 			admin.POST("/contents/:id/approve", contentHandler.Approve)
 			admin.POST("/contents/:id/reject", contentHandler.Reject)
+			admin.GET("/contents/export", contentHandler.Export)
+			admin.POST("/contents/import", contentHandler.Import)
 
 			// 用户留言管理
 			admin.GET("/messages", messageHandler.AdminList)

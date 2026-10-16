@@ -155,3 +155,25 @@ export function triggerSync(force = false) {
 export function getSyncStatus() {
   return http<SyncState>({ method: 'GET', url: '/admin/sync/status' })
 }
+
+// ---------- 内容批量导入 / 导出 ----------
+
+// exportContents 触发下载全部内容的 JSON 备份文件。
+export function exportContents() {
+  return http<Blob>({
+    method: 'GET',
+    url: '/admin/contents/export',
+    responseType: 'blob',
+  })
+}
+
+// importContents 上传 contents-export.json 批量恢复内容。
+export function importContents(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  return http<{ imported: number }>({
+    method: 'POST',
+    url: '/admin/contents/import',
+    data: form,
+  })
+}
