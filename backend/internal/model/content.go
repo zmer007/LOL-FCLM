@@ -27,7 +27,7 @@ type ContentSnapshot struct {
 	Runes          BuildRunes `json:"runes"`
 	BuildNote      string     `json:"buildNote"` // 这套装备符文的思路
 	GameVersion    string     `json:"gameVersion"` // 创作时的游戏版本（Data Dragon 版本号）
-	SourceURL      string     `json:"sourceUrl"`   // 原地址链接（可选，如 B 站/YouTube 原视频地址）
+	SourceURL      string     `json:"sourceUrl"`   // 原地址链接（可选，如 B 站原视频地址）
 	ApprovedAt     time.Time  `json:"approvedAt"`
 }
 

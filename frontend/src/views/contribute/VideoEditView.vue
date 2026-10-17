@@ -62,7 +62,7 @@
 
       <!-- 原地址链接 -->
       <section class="card">
-        <div class="field-label">原地址链接 <span class="hint">（可选，如 B 站 / YouTube 原视频地址）</span></div>
+        <div class="field-label">原地址链接 <span class="hint">（可选，如 B 站等原视频地址）</span></div>
         <input v-model="form.sourceUrl" class="text-input" type="url" maxlength="500" placeholder="https://..." />
       </section>
 
