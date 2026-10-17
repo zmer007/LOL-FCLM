@@ -121,3 +121,13 @@ func (r *ContentRepository) ListAll() ([]model.Content, error) {
 	err := r.db.Order("id ASC").Find(&list).Error
 	return list, err
 }
+
+// FindByIDs 按 ID 批量获取内容。
+func (r *ContentRepository) FindByIDs(ids []int64) ([]model.Content, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var list []model.Content
+	err := r.db.Where("id IN ?", ids).Order("id ASC").Find(&list).Error
+	return list, err
+}

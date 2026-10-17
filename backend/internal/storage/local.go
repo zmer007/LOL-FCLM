@@ -66,6 +66,49 @@ func NewLocalStore(root string, maxImageMB, maxVideoMB int) *LocalStore {
 	}
 }
 
+// MediaRoot 返回媒体文件根目录。
+func (s *LocalStore) MediaRoot() string { return s.root }
+
+// URLToRelPath 将对外 URL（/media/videos/202610/x.mkv）转为相对媒体根的路径
+// （videos/202610/x.mkv）；不匹配前缀时返回空串。
+func (s *LocalStore) URLToRelPath(url string) string {
+	url = strings.TrimSpace(url)
+	if !strings.HasPrefix(url, s.urlPrefix+"/") {
+		return ""
+	}
+	rel := strings.TrimPrefix(url, s.urlPrefix+"/")
+	rel = filepath.ToSlash(rel)
+	// 防御路径穿越
+	if strings.Contains(rel, "..") {
+		return ""
+	}
+	return rel
+}
+
+// AbsPath 返回相对路径对应的绝对磁盘路径。
+func (s *LocalStore) AbsPath(rel string) string {
+	return filepath.Join(s.root, filepath.FromSlash(rel))
+}
+
+// SaveMediaFile 将 src 写入媒体根下的 rel 路径（导入恢复媒体文件时使用）。
+func (s *LocalStore) SaveMediaFile(rel string, src io.Reader) error {
+	rel = filepath.ToSlash(rel)
+	if strings.Contains(rel, "..") {
+		return errors.New("非法路径")
+	}
+	full := filepath.Join(s.root, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		return err
+	}
+	f, err := os.Create(full)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.Copy(f, src)
+	return err
+}
+
 // saveFile 通用用户上传落盘：category 一级目录 + yyyymm 二级目录 + uuid 命名。
 // sniff 为 nil 时跳过文件头校验；否则读取前 512 字节校验真实类型。
 func (s *LocalStore) saveFile(

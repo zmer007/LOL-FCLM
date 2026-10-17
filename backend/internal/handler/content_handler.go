@@ -3,8 +3,12 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"mime/multipart"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -248,42 +252,76 @@ func atoiDefault(s string, def int) int {
 
 // ---------- 批量导入 / 导出 ----------
 
-// Export GET /api/admin/contents/export
-// 以 JSON 文件形式下载全部内容。
+// ExportReq 导出请求体。
+type ExportReq struct {
+	IDs []int64 `json:"ids"` // 为空则导出全部
+}
+
+// Export POST /api/admin/contents/export
+// 按 ID 导出内容（含媒体文件，分卷 zip），返回文件列表供下载。
 func (h *ContentHandler) Export(c *gin.Context) {
-	data, err := h.svc.ExportAll()
+	var req ExportReq
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&req)
+	}
+	result, err := h.svc.ExportSelected(req.IDs)
 	if err != nil {
-		response.Fail(c, 500, 500, "导出失败")
+		response.Fail(c, 500, 500, "导出失败："+err.Error())
 		return
 	}
-	c.Header("Content-Type", "application/json; charset=utf-8")
-	c.Header("Content-Disposition", `attachment; filename="contents-export.json"`)
-	c.Data(200, "application/json; charset=utf-8", data)
+	response.OK(c, result)
+}
+
+// DownloadExport GET /api/admin/exports/:dir/:file
+// 下载导出的单个文件（manifest.json 或 media-*.zip）。
+func (h *ContentHandler) DownloadExport(c *gin.Context) {
+	dir := c.Param("dir")
+	file := c.Param("file")
+	// 防路径穿越
+	if strings.Contains(dir, "..") || strings.Contains(file, "..") ||
+		strings.ContainsAny(dir, `/\`) || strings.Contains(file, `/\`) {
+		response.Fail(c, 400, 400, "非法路径")
+		return
+	}
+	full := filepath.Join(h.svc.ExportsRoot(), dir, file)
+	if _, err := os.Stat(full); err != nil {
+		response.Fail(c, 404, 404, "文件不存在")
+		return
+	}
+	c.FileAttachment(full, file)
 }
 
 // Import POST /api/admin/contents/import
-// 上传 contents-export.json 批量恢复内容。
+// 上传 manifest.json + media-*.zip（多文件）批量恢复内容与媒体。
 func (h *ContentHandler) Import(c *gin.Context) {
 	uid := middleware.UserID(c)
-	fh, err := c.FormFile("file")
-	if err != nil {
-		response.Fail(c, 400, 400, "请选择要导入的 JSON 文件")
-		return
-	}
-	f, err := fh.Open()
-	if err != nil {
-		response.Fail(c, 400, 400, "读取文件失败")
-		return
-	}
-	defer f.Close()
 
-	buf := make([]byte, fh.Size)
-	if _, err := f.Read(buf); err != nil {
-		response.Fail(c, 400, 400, "读取文件失败")
+	form, err := c.MultipartForm()
+	if err != nil {
+		response.Fail(c, 400, 400, "请选择要导入的文件")
 		return
 	}
 
-	n, err := h.svc.Import(buf, uid)
+	files := map[string][]byte{}
+	for _, fhs := range form.File {
+		for _, fh := range fhs {
+			name := filepath.Base(fh.Filename)
+			f, err := fh.Open()
+			if err != nil {
+				response.Fail(c, 400, 400, "读取文件失败："+name)
+				return
+			}
+			buf, err := io.ReadAll(f)
+			f.Close()
+			if err != nil {
+				response.Fail(c, 400, 400, "读取文件失败："+name)
+				return
+			}
+			files[name] = buf
+		}
+	}
+
+	n, err := h.svc.ImportFromFiles(files, uid)
 	if ve := asValidation(err); ve != nil {
 		response.Fail(c, 400, 400, ve.Msg)
 		return

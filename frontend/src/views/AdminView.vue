@@ -4,11 +4,13 @@ import { useUserStore } from '../stores/user'
 import {
   type AdminUser,
   type AssetCategory,
+  type ExportResult,
   type GameAsset,
   type Hero,
   type SyncState,
   addUser,
   deleteUser,
+  downloadExportFile,
   exportContents,
   getSyncStatus,
   importContents,
@@ -175,22 +177,56 @@ async function doReject(c: Content) {
 // ---------- 批量导入 / 导出 ----------
 
 const importFileInput = ref<HTMLInputElement | null>(null)
+const selectedIds = ref<number[]>([])
+const exportResult = ref<ExportResult | null>(null)
+
+function toggleSelect(id: number) {
+  const i = selectedIds.value.indexOf(id)
+  if (i >= 0) selectedIds.value.splice(i, 1)
+  else selectedIds.value.push(id)
+}
+
+function toggleSelectAll() {
+  if (selectedIds.value.length === reviewList.value.length) {
+    selectedIds.value = []
+  } else {
+    selectedIds.value = reviewList.value.map((c) => c.id)
+  }
+}
 
 async function doExport() {
   errorMsg.value = ''
+  exportResult.value = null
   try {
-    const blob = await exportContents()
+    const res = await exportContents(selectedIds.value)
+    exportResult.value = res
+  } catch (e) {
+    errorMsg.value = '导出失败：' + (e as Error).message
+  }
+}
+
+async function downloadFile(name: string) {
+  if (!exportResult.value) return
+  try {
+    const blob = await downloadExportFile(exportResult.value.dir, name)
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `contents-export-${new Date().toISOString().slice(0, 10)}.json`
+    a.download = name
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
   } catch (e) {
-    errorMsg.value = '导出失败：' + (e as Error).message
+    errorMsg.value = '下载失败：' + (e as Error).message
   }
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  if (bytes < 1024 * 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + ' MB'
+  return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB'
 }
 
 function doImportClick() {
@@ -199,13 +235,14 @@ function doImportClick() {
 
 async function onImportFileChange(e: Event) {
   const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
+  const files = input.files
   input.value = ''
-  if (!file) return
+  if (!files || files.length === 0) return
   errorMsg.value = ''
   try {
-    const res = await importContents(file)
+    const res = await importContents(Array.from(files))
     errorMsg.value = `成功导入 ${res.imported} 条内容`
+    selectedIds.value = []
     await loadData()
   } catch (err) {
     errorMsg.value = '导入失败：' + (err as Error).message
@@ -387,12 +424,15 @@ async function removeUser(u: AdminUser) {
             @click="switchReviewStatus('rejected')"
           >已拒绝</button>
           <span class="review-spacer"></span>
-          <button class="btn small" @click="doExport">导出全部</button>
+          <button class="btn small" @click="doExport">
+            {{ selectedIds.length ? `导出选中 (${selectedIds.length})` : '导出全部' }}
+          </button>
           <button class="btn small" @click="doImportClick">导入</button>
           <input
             ref="importFileInput"
             type="file"
-            accept="application/json,.json"
+            webkitdirectory
+            multiple
             style="display: none"
             @change="onImportFileChange"
           />
@@ -402,6 +442,13 @@ async function removeUser(u: AdminUser) {
         <table v-else-if="reviewList.length" class="utable">
           <thead>
             <tr>
+              <th class="col-check">
+                <input
+                  type="checkbox"
+                  :checked="selectedIds.length === reviewList.length && reviewList.length > 0"
+                  @change="toggleSelectAll"
+                />
+              </th>
               <th>类型</th>
               <th>标题</th>
               <th>投稿者</th>
@@ -412,6 +459,13 @@ async function removeUser(u: AdminUser) {
           </thead>
           <tbody>
             <tr v-for="c in reviewList" :key="c.id">
+              <td class="col-check">
+                <input
+                  type="checkbox"
+                  :checked="selectedIds.includes(c.id)"
+                  @change="toggleSelect(c.id)"
+                />
+              </td>
               <td>{{ c.kind === 'video' ? '视频' : '图文' }}</td>
               <td class="u-name">
                 {{ c.title }}
@@ -445,6 +499,33 @@ async function removeUser(u: AdminUser) {
           <button :disabled="reviewPage === reviewTotalPages" @click="reviewPage++; loadData()">下一页</button>
         </div>
       </section>
+
+      <!-- 导出结果弹层 -->
+      <div v-if="exportResult" class="preview-mask" @click.self="exportResult = null">
+        <div class="preview-dialog">
+          <div class="preview-head">
+            <span>导出完成 · 共 {{ exportResult.files.length }} 个文件</span>
+            <button class="preview-close" @click="exportResult = null">×</button>
+          </div>
+          <div class="preview-body">
+            <p class="export-tip">
+              请将以下文件全部下载到同一目录，导入时选择该目录即可。
+            </p>
+            <table class="utable export-files">
+              <thead>
+                <tr><th>文件名</th><th>大小</th><th>操作</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="f in exportResult.files" :key="f.name">
+                  <td>{{ f.name }}</td>
+                  <td>{{ formatSize(f.size) }}</td>
+                  <td><button class="link-btn" @click="downloadFile(f.name)">下载</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
       <!-- 审批预览弹层 -->
       <div v-if="reviewPreview" class="preview-mask" @click.self="reviewPreview = null">
@@ -921,6 +1002,18 @@ async function removeUser(u: AdminUser) {
 }
 .col-actions {
   text-align: right;
+}
+.col-check {
+  width: 40px;
+  text-align: center;
+}
+.export-tip {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--faint);
+}
+.export-files td, .export-files th {
+  padding: 8px 12px;
 }
 .mini-sel {
   height: 30px;

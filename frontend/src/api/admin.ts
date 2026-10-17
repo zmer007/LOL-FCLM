@@ -158,19 +158,40 @@ export function getSyncStatus() {
 
 // ---------- 内容批量导入 / 导出 ----------
 
-// exportContents 触发下载全部内容的 JSON 备份文件。
-export function exportContents() {
+export interface ExportFileInfo {
+  name: string
+  size: number
+}
+
+export interface ExportResult {
+  dir: string
+  files: ExportFileInfo[]
+}
+
+// exportContents 按 ID 导出内容（含媒体文件，分卷 zip），返回文件列表。
+export function exportContents(ids: number[] = []) {
+  return http<ExportResult>({
+    method: 'POST',
+    url: '/admin/contents/export',
+    data: { ids },
+  })
+}
+
+// downloadExportFile 下载导出的单个文件。
+export function downloadExportFile(dir: string, file: string) {
   return http<Blob>({
     method: 'GET',
-    url: '/admin/contents/export',
+    url: `/admin/exports/${encodeURIComponent(dir)}/${encodeURIComponent(file)}`,
     responseType: 'blob',
   })
 }
 
-// importContents 上传 contents-export.json 批量恢复内容。
-export function importContents(file: File) {
+// importContents 上传 manifest.json + media-*.zip（多文件）批量恢复内容与媒体。
+export function importContents(files: File[]) {
   const form = new FormData()
-  form.append('file', file)
+  for (const f of files) {
+    form.append('files', f)
+  }
   return http<{ imported: number }>({
     method: 'POST',
     url: '/admin/contents/import',
