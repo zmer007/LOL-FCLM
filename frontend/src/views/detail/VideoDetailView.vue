@@ -49,6 +49,7 @@
         <span>播放量 {{ content.views }}</span>
         <span>{{ content.createdAt }}</span>
         <span v-if="content.gameVersion" class="ver">游戏版本 {{ content.gameVersion }}</span>
+        <a v-if="content.sourceUrl" :href="content.sourceUrl" target="_blank" rel="noopener" class="src-link">查看原地址 ↗</a>
       </div>
 
       <div v-if="content.body" class="v-desc">
@@ -278,6 +279,14 @@ onMounted(async () => {
   border-radius: 999px;
   padding: 1px 10px;
   font-size: 11.5px;
+}
+.v-meta .src-link {
+  color: var(--gold);
+  text-decoration: none;
+  font-size: 12px;
+}
+.v-meta .src-link:hover {
+  text-decoration: underline;
 }
 
 /* 简介 */

@@ -26,6 +26,12 @@
         <input v-model="form.title" class="text-input" type="text" maxlength="120" placeholder="一句话讲清这篇图文的内容" />
       </section>
 
+      <!-- 原地址链接 -->
+      <section class="card">
+        <div class="field-label">原地址链接 <span class="hint">（可选，如转载来源地址）</span></div>
+        <input v-model="form.sourceUrl" class="text-input" type="url" maxlength="500" placeholder="https://..." />
+      </section>
+
       <!-- 对位英雄 & 段位 -->
       <section class="card">
         <div class="opp-rank-row">
@@ -158,6 +164,7 @@ const form = ref<{
   items: BuildItems
   runes: BuildRunes
   buildNote: string
+  sourceUrl: string
 }>({
   title: '',
   body: '',
@@ -166,6 +173,7 @@ const form = ref<{
   items: emptyItems(),
   runes: emptyRunes(),
   buildNote: '',
+  sourceUrl: '',
 })
 
 // 是否配置了任意装备或符文（思路随装备符文必填）
@@ -240,6 +248,7 @@ async function submit() {
     runes: form.value.runes,
     buildNote: form.value.buildNote.trim(),
     keptImages: keptImages.value,
+    sourceUrl: form.value.sourceUrl.trim(),
   }
   saving.value = true
   try {
@@ -270,6 +279,7 @@ function resetForm() {
     items: emptyItems(),
     runes: emptyRunes(),
     buildNote: '',
+    sourceUrl: '',
   }
   keptImages.value = []
   clearNewImages()
@@ -308,6 +318,7 @@ onMounted(async () => {
         items: c.items,
         runes: c.runes,
         buildNote: c.buildNote ?? '',
+        sourceUrl: c.sourceUrl ?? '',
       }
       keptImages.value = [...c.images]
     } else {

@@ -29,6 +29,7 @@ type ContentInput struct {
 	Runes          model.BuildRunes `json:"runes"`
 	BuildNote      string           `json:"buildNote"`  // 装备符文思路
 	KeptImages     []string         `json:"keptImages"` // 图文编辑时保留的旧图 URL
+	SourceURL      string           `json:"sourceUrl"`  // 原地址链接（可选）
 }
 
 // ContentVO 对外/管理统一视图。公开场景字段来自 Approved 快照。
@@ -59,6 +60,7 @@ type ContentVO struct {
 	Runes          model.BuildRunes `json:"runes"`
 	BuildNote      string           `json:"buildNote"`
 	GameVersion    string           `json:"gameVersion"`
+	SourceURL      string           `json:"sourceUrl"`
 	Views          int              `json:"views"`
 	CreatedAt      string           `json:"createdAt"`
 	UpdatedAt      string           `json:"updatedAt"`
@@ -158,6 +160,7 @@ func (s *ContentService) Create(in ContentInput, fs FileSet, authorID int64) (*m
 		Rank: in.Rank,
 		Kind: in.Kind, Title: in.Title, Body: in.Body, DurationSec: in.DurationSec,
 		VideoURL: videoURL, Images: images, Items: in.Items, Runes: in.Runes, BuildNote: in.BuildNote,
+		SourceURL:   in.SourceURL,
 		GameVersion: s.currentGameVersion(),
 		Status:      model.ContentPending,
 	}
@@ -220,6 +223,7 @@ func (s *ContentService) Update(id, uid int64, isAdmin bool, in ContentInput, fs
 	c.Items = in.Items
 	c.Runes = in.Runes
 	c.BuildNote = in.BuildNote
+	c.SourceURL = in.SourceURL
 	c.VideoURL = videoURL
 	c.Images = images
 	c.Status = model.ContentPending // 重新审核
@@ -259,6 +263,7 @@ func (s *ContentService) Approve(id int64) error {
 		Title: c.Title, Body: c.Body, VideoURL: c.VideoURL, DurationSec: c.DurationSec,
 		Images: c.Images, OpponentHeroID: c.OpponentHeroID, Rank: c.Rank,
 		Items: c.Items, Runes: c.Runes, BuildNote: c.BuildNote, GameVersion: c.GameVersion,
+		SourceURL: c.SourceURL,
 	}
 	c.Status = model.ContentApproved
 	c.RejectReason = ""
@@ -339,12 +344,14 @@ func (s *ContentService) enrich(list []model.Content, queryHeroID, viewerUID int
 			vo.Images, vo.Items, vo.Runes, vo.BuildNote = c.Images, c.Items, c.Runes, c.BuildNote
 			vo.Rank = c.Rank
 			vo.GameVersion = c.GameVersion
+			vo.SourceURL = c.SourceURL
 			vo.OpponentName, vo.OpponentTitle, vo.OpponentAvatar, vo.OpponentID = fillHero(c.OpponentHeroID)
 		} else {
 			vo.Title, vo.Body, vo.VideoURL, vo.DurationSec = snap.Title, snap.Body, snap.VideoURL, snap.DurationSec
 			vo.Images, vo.Items, vo.Runes, vo.BuildNote = snap.Images, snap.Items, snap.Runes, snap.BuildNote
 			vo.Rank = snap.Rank
 			vo.GameVersion = snap.GameVersion
+			vo.SourceURL = snap.SourceURL
 			vo.OpponentName, vo.OpponentTitle, vo.OpponentAvatar, vo.OpponentID = fillHero(snap.OpponentHeroID)
 		}
 		out = append(out, vo)
@@ -508,6 +515,13 @@ func (s *ContentService) validateInput(in *ContentInput) error {
 	}
 	if utf8.RuneCountInString(in.BuildNote) > 500 {
 		return &ValidationError{Msg: "装备符文思路不能超过 500 字"}
+	}
+	in.SourceURL = strings.TrimSpace(in.SourceURL)
+	if in.SourceURL != "" && !strings.HasPrefix(in.SourceURL, "http://") && !strings.HasPrefix(in.SourceURL, "https://") {
+		return &ValidationError{Msg: "原地址链接需以 http:// 或 https:// 开头"}
+	}
+	if utf8.RuneCountInString(in.SourceURL) > 500 {
+		return &ValidationError{Msg: "原地址链接不能超过 500 字"}
 	}
 	in.Rank = strings.TrimSpace(in.Rank)
 	if in.Rank == "" {

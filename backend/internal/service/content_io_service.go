@@ -10,24 +10,25 @@ import (
 
 // ExportContent 单条导出记录（含英雄/作者名称，便于人工核对）。
 type ExportContent struct {
-	Kind             string          `json:"kind"`
-	HeroID           int64           `json:"heroId"`
-	HeroName         string          `json:"heroName"`
-	OpponentHeroID   int64           `json:"opponentHeroId"`
-	OpponentHeroName string          `json:"opponentHeroName"`
-	AuthorID         int64           `json:"authorId"`
-	AuthorName       string          `json:"authorName"`
-	Rank             string          `json:"rank"`
-	Title            string          `json:"title"`
-	Body             string          `json:"body"`
-	DurationSec      int             `json:"durationSec"`
-	VideoURL         string          `json:"videoUrl"`
-	Images           []string        `json:"images"`
+	Kind             string           `json:"kind"`
+	HeroID           int64            `json:"heroId"`
+	HeroName         string           `json:"heroName"`
+	OpponentHeroID   int64            `json:"opponentHeroId"`
+	OpponentHeroName string           `json:"opponentHeroName"`
+	AuthorID         int64            `json:"authorId"`
+	AuthorName       string           `json:"authorName"`
+	Rank             string           `json:"rank"`
+	Title            string           `json:"title"`
+	Body             string           `json:"body"`
+	DurationSec      int              `json:"durationSec"`
+	VideoURL         string           `json:"videoUrl"`
+	Images           []string         `json:"images"`
 	Items            model.BuildItems `json:"items"`
 	Runes            model.BuildRunes `json:"runes"`
-	BuildNote        string          `json:"buildNote"`
-	GameVersion      string          `json:"gameVersion"`
-	Status           string          `json:"status"`
+	BuildNote        string           `json:"buildNote"`
+	GameVersion      string           `json:"gameVersion"`
+	SourceURL        string           `json:"sourceUrl"`
+	Status           string           `json:"status"`
 }
 
 // ExportFile 导出文件结构。
@@ -75,7 +76,7 @@ func (s *ContentService) ExportAll() ([]byte, error) {
 			AuthorID: c.AuthorID, AuthorName: userName(c.AuthorID),
 			Rank: c.Rank, Title: c.Title, Body: c.Body, DurationSec: c.DurationSec,
 			VideoURL: c.VideoURL, Images: c.Images, Items: c.Items, Runes: c.Runes,
-			BuildNote: c.BuildNote, GameVersion: c.GameVersion, Status: c.Status,
+			BuildNote: c.BuildNote, GameVersion: c.GameVersion, SourceURL: c.SourceURL, Status: c.Status,
 		})
 	}
 
@@ -157,7 +158,7 @@ func (s *ContentService) Import(data []byte, authorID int64) (int, error) {
 		in := ContentInput{
 			Kind: ec.Kind, HeroID: hero.ID, OpponentHeroID: opp.ID, Rank: ec.Rank,
 			Title: ec.Title, Body: ec.Body, DurationSec: ec.DurationSec,
-			Items: ec.Items, Runes: ec.Runes, BuildNote: ec.BuildNote,
+			Items: ec.Items, Runes: ec.Runes, BuildNote: ec.BuildNote, SourceURL: ec.SourceURL,
 		}
 		if err := s.validateInput(&in); err != nil {
 			return count, &ValidationError{Msg: "第" + strconv.Itoa(i+1) + "条：" + err.Error()}
@@ -176,7 +177,7 @@ func (s *ContentService) Import(data []byte, authorID int64) (int, error) {
 			AuthorID: author, HeroID: hero.ID, OpponentHeroID: opp.ID,
 			Rank: ec.Rank, Kind: ec.Kind, Title: ec.Title, Body: ec.Body,
 			DurationSec: ec.DurationSec, VideoURL: ec.VideoURL, Images: ec.Images,
-			Items: ec.Items, Runes: ec.Runes, BuildNote: ec.BuildNote,
+			Items: ec.Items, Runes: ec.Runes, BuildNote: ec.BuildNote, SourceURL: ec.SourceURL,
 			GameVersion: gv, Status: status,
 		}
 		if status == model.ContentApproved {
@@ -184,6 +185,7 @@ func (s *ContentService) Import(data []byte, authorID int64) (int, error) {
 				Title: c.Title, Body: c.Body, VideoURL: c.VideoURL, DurationSec: c.DurationSec,
 				Images: c.Images, OpponentHeroID: c.OpponentHeroID, Rank: c.Rank,
 				Items: c.Items, Runes: c.Runes, BuildNote: c.BuildNote, GameVersion: gv,
+				SourceURL: c.SourceURL,
 			}
 		}
 		if err := s.contents.Create(c); err != nil {

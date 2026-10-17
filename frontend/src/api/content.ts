@@ -31,6 +31,7 @@ export interface Content {
   runes: BuildRunes
   buildNote: string
   gameVersion: string
+  sourceUrl: string
   views: number
   createdAt: string
   updatedAt: string
@@ -68,6 +69,7 @@ export interface ContentMeta {
   runes: BuildRunes
   buildNote: string
   keptImages?: string[]
+  sourceUrl?: string
 }
 
 // 投稿/编辑提交载荷：meta JSON + 可选视频 + 多图。
