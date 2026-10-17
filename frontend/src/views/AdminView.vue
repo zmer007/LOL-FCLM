@@ -177,31 +177,82 @@ async function doReject(c: Content) {
 // ---------- 批量导入 / 导出 ----------
 
 const importFileInput = ref<HTMLInputElement | null>(null)
-const selectedIds = ref<number[]>([])
+const exportDialogOpen = ref(false)
+const exportLoading = ref(false)
+const exportList = ref<Content[]>([])
+const exportSelectedIds = ref<number[]>([])
+const exporting = ref(false)
+const exportStage = ref('')
 const exportResult = ref<ExportResult | null>(null)
 
-function toggleSelect(id: number) {
-  const i = selectedIds.value.indexOf(id)
-  if (i >= 0) selectedIds.value.splice(i, 1)
-  else selectedIds.value.push(id)
+// 拉取全部内容供导出选择（遍历分页，含所有状态）。
+async function loadAllContentsForExport() {
+  exportLoading.value = true
+  exportList.value = []
+  try {
+    const statuses = ['approved', 'pending', 'rejected']
+    let all: Content[] = []
+    for (const st of statuses) {
+      let page = 1
+      while (true) {
+        const res = await listReviewContents(st, page)
+        all = all.concat(res.list)
+        if (page >= Math.ceil(res.total / res.size)) break
+        page++
+      }
+    }
+    // 按 ID 去重（同一内容不会出现在多个状态，但保险起见）
+    const seen = new Set<number>()
+    exportList.value = all.filter((c) => {
+      if (seen.has(c.id)) return false
+      seen.add(c.id)
+      return true
+    })
+  } catch (e) {
+    errorMsg.value = '加载内容列表失败：' + (e as Error).message
+  } finally {
+    exportLoading.value = false
+  }
 }
 
-function toggleSelectAll() {
-  if (selectedIds.value.length === reviewList.value.length) {
-    selectedIds.value = []
+function openExportDialog() {
+  exportSelectedIds.value = []
+  exportResult.value = null
+  exportDialogOpen.value = true
+  loadAllContentsForExport()
+}
+
+function toggleExportSelect(id: number) {
+  const i = exportSelectedIds.value.indexOf(id)
+  if (i >= 0) exportSelectedIds.value.splice(i, 1)
+  else exportSelectedIds.value.push(id)
+}
+
+function toggleExportSelectAll() {
+  if (exportSelectedIds.value.length === exportList.value.length) {
+    exportSelectedIds.value = []
   } else {
-    selectedIds.value = reviewList.value.map((c) => c.id)
+    exportSelectedIds.value = exportList.value.map((c) => c.id)
   }
 }
 
 async function doExport() {
+  if (exportSelectedIds.value.length === 0) {
+    errorMsg.value = '请至少选择一条内容'
+    return
+  }
   errorMsg.value = ''
   exportResult.value = null
+  exporting.value = true
+  exportStage.value = `正在打包 ${exportSelectedIds.value.length} 条内容及媒体文件…`
   try {
-    const res = await exportContents(selectedIds.value)
+    const res = await exportContents(exportSelectedIds.value)
+    exportStage.value = '导出完成'
     exportResult.value = res
   } catch (e) {
     errorMsg.value = '导出失败：' + (e as Error).message
+  } finally {
+    exporting.value = false
   }
 }
 
@@ -242,7 +293,6 @@ async function onImportFileChange(e: Event) {
   try {
     const res = await importContents(Array.from(files))
     errorMsg.value = `成功导入 ${res.imported} 条内容`
-    selectedIds.value = []
     await loadData()
   } catch (err) {
     errorMsg.value = '导入失败：' + (err as Error).message
@@ -424,9 +474,7 @@ async function removeUser(u: AdminUser) {
             @click="switchReviewStatus('rejected')"
           >已拒绝</button>
           <span class="review-spacer"></span>
-          <button class="btn small" @click="doExport">
-            {{ selectedIds.length ? `导出选中 (${selectedIds.length})` : '导出全部' }}
-          </button>
+          <button class="btn small" @click="openExportDialog">导出</button>
           <button class="btn small" @click="doImportClick">导入</button>
           <input
             ref="importFileInput"
@@ -442,13 +490,6 @@ async function removeUser(u: AdminUser) {
         <table v-else-if="reviewList.length" class="utable">
           <thead>
             <tr>
-              <th class="col-check">
-                <input
-                  type="checkbox"
-                  :checked="selectedIds.length === reviewList.length && reviewList.length > 0"
-                  @change="toggleSelectAll"
-                />
-              </th>
               <th>类型</th>
               <th>标题</th>
               <th>投稿者</th>
@@ -459,13 +500,6 @@ async function removeUser(u: AdminUser) {
           </thead>
           <tbody>
             <tr v-for="c in reviewList" :key="c.id">
-              <td class="col-check">
-                <input
-                  type="checkbox"
-                  :checked="selectedIds.includes(c.id)"
-                  @change="toggleSelect(c.id)"
-                />
-              </td>
               <td>{{ c.kind === 'video' ? '视频' : '图文' }}</td>
               <td class="u-name">
                 {{ c.title }}
@@ -500,29 +534,76 @@ async function removeUser(u: AdminUser) {
         </div>
       </section>
 
-      <!-- 导出结果弹层 -->
-      <div v-if="exportResult" class="preview-mask" @click.self="exportResult = null">
-        <div class="preview-dialog">
+      <!-- 导出弹窗 -->
+      <div v-if="exportDialogOpen" class="preview-mask" @click.self="exportDialogOpen = false">
+        <div class="preview-dialog export-dialog">
           <div class="preview-head">
-            <span>导出完成 · 共 {{ exportResult.files.length }} 个文件</span>
-            <button class="preview-close" @click="exportResult = null">×</button>
+            <span>导出内容</span>
+            <button class="preview-close" @click="exportDialogOpen = false">×</button>
           </div>
           <div class="preview-body">
-            <p class="export-tip">
-              请将以下文件全部下载到同一目录，导入时选择该目录即可。
-            </p>
-            <table class="utable export-files">
-              <thead>
-                <tr><th>文件名</th><th>大小</th><th>操作</th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="f in exportResult.files" :key="f.name">
-                  <td>{{ f.name }}</td>
-                  <td>{{ formatSize(f.size) }}</td>
-                  <td><button class="link-btn" @click="downloadFile(f.name)">下载</button></td>
-                </tr>
-              </tbody>
-            </table>
+            <!-- 选择阶段 -->
+            <div v-if="!exportResult && !exporting">
+              <div class="export-bar">
+                <label class="export-sel-all">
+                  <input
+                    type="checkbox"
+                    :checked="exportList.length > 0 && exportSelectedIds.length === exportList.length"
+                    @change="toggleExportSelectAll"
+                  />
+                  全选
+                </label>
+                <span class="export-count">已选 {{ exportSelectedIds.length }} / {{ exportList.length }}</span>
+                <button
+                  class="btn small"
+                  :disabled="exportSelectedIds.length === 0 || exportLoading"
+                  @click="doExport"
+                >导出选中</button>
+              </div>
+              <div v-if="exportLoading" class="admin-tip">加载内容列表…</div>
+              <div v-else-if="exportList.length === 0" class="admin-tip">暂无可导出的内容</div>
+              <div v-else class="export-list">
+                <label v-for="c in exportList" :key="c.id" class="export-item">
+                  <input
+                    type="checkbox"
+                    :checked="exportSelectedIds.includes(c.id)"
+                    @change="toggleExportSelect(c.id)"
+                  />
+                  <span class="ei-kind">{{ c.kind === 'video' ? '视频' : '图文' }}</span>
+                  <span class="ei-title">{{ c.title }}</span>
+                  <span class="ei-meta">{{ c.heroTitle }} vs {{ c.opponentTitle }}</span>
+                  <span class="ei-status" :class="'st-' + c.status">
+                    {{ c.status === 'approved' ? '已发布' : c.status === 'pending' ? '待审核' : '已拒绝' }}
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 导出进度 -->
+            <div v-if="exporting" class="export-progress">
+              <div class="spinner"></div>
+              <p>{{ exportStage }}</p>
+              <div class="progress-bar"><div class="progress-inner"></div></div>
+            </div>
+
+            <!-- 导出结果 -->
+            <div v-if="exportResult" class="export-result">
+              <p class="export-tip">
+                导出完成，共 {{ exportResult.files.length }} 个文件。请全部下载到同一目录，导入时选择该目录即可。
+              </p>
+              <table class="utable export-files">
+                <thead>
+                  <tr><th>文件名</th><th>大小</th><th>操作</th></tr>
+                </thead>
+                <tbody>
+                  <tr v-for="f in exportResult.files" :key="f.name">
+                    <td>{{ f.name }}</td>
+                    <td>{{ formatSize(f.size) }}</td>
+                    <td><button class="link-btn" @click="downloadFile(f.name)">下载</button></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -1006,6 +1087,130 @@ async function removeUser(u: AdminUser) {
 .col-check {
   width: 40px;
   text-align: center;
+}
+.export-dialog {
+  max-width: 680px;
+  width: 90vw;
+}
+.export-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.export-sel-all {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.export-count {
+  font-size: 13px;
+  color: var(--faint);
+  flex: 1;
+}
+.export-list {
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.export-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.export-item:last-child {
+  border-bottom: none;
+}
+.export-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.ei-kind {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--gold-dark);
+  color: var(--gold-bright);
+  white-space: nowrap;
+}
+.ei-title {
+  flex: 1;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ei-meta {
+  font-size: 12px;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.ei-status {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.ei-status.st-approved {
+  background: rgba(76, 175, 80, 0.15);
+  color: #66bb6a;
+}
+.ei-status.st-pending {
+  background: rgba(255, 193, 7, 0.15);
+  color: #ffc107;
+}
+.ei-status.st-rejected {
+  background: rgba(244, 67, 54, 0.15);
+  color: #ef5350;
+}
+.export-progress {
+  text-align: center;
+  padding: 40px 20px;
+}
+.export-progress p {
+  margin: 16px 0 20px;
+  font-size: 14px;
+  color: var(--faint);
+}
+.spinner {
+  width: 36px;
+  height: 36px;
+  margin: 0 auto;
+  border: 3px solid var(--line);
+  border-top-color: var(--gold-bright);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-inner {
+  width: 30%;
+  height: 100%;
+  background: var(--gold-bright);
+  border-radius: 3px;
+  animation: progress-move 1.5s ease-in-out infinite;
+}
+@keyframes progress-move {
+  0% { margin-left: -30%; }
+  100% { margin-left: 100%; }
+}
+.export-result {
+  padding-top: 8px;
 }
 .export-tip {
   margin: 0 0 16px;
