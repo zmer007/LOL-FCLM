@@ -17,7 +17,7 @@
     <template v-else>
       <div class="page-head">
         <h1>{{ editId ? '编辑视频' : '上传视频' }}</h1>
-        <p class="sub">投稿至 <em>{{ heroTitle }}</em> 的对线页 · 仅支持 MP4（H.264），大小不超过 200MB</p>
+        <p class="sub">投稿至 <em>{{ heroTitle }}</em> 的对线页 · 支持 MP4/MKV/MOV/AVI/WebM 等常见格式，大小不超过 200MB</p>
       </div>
 
       <!-- 视频文件 -->
@@ -34,7 +34,7 @@
           <input
             ref="fileInput"
             type="file"
-            accept="video/mp4"
+            accept="video/*"
             hidden
             @change="onFileChange"
           />
@@ -43,7 +43,7 @@
               已有视频，不更换则保留：<a :href="existingUrl" target="_blank" @click.stop>查看当前视频</a>
             </span>
             <span v-else class="dz-main">点击选择或拖拽视频到此处</span>
-            <span class="dz-sub">MP4 / H.264 · ≤200MB</span>
+            <span class="dz-sub">MP4 / MKV / MOV / AVI / WebM 等 · ≤200MB</span>
           </template>
           <template v-else>
             <span class="dz-main">{{ videoFile.name }}</span>
@@ -225,11 +225,13 @@ function readDuration(file: File): Promise<number> {
   })
 }
 
+const ALLOWED_VIDEO_EXT = /\.(mp4|mkv|mov|avi|webm|flv|wmv|m4v|ts)$/i
+
 async function pickFile(file: File) {
   fileError.value = ''
-  const isMp4 = file.type === 'video/mp4' || /\.mp4$/i.test(file.name)
-  if (!isMp4) {
-    fileError.value = '仅支持 MP4 格式视频'
+  const isVideo = file.type.startsWith('video/') || ALLOWED_VIDEO_EXT.test(file.name)
+  if (!isVideo) {
+    fileError.value = '仅支持 mp4/mkv/mov/avi/webm/flv/wmv/m4v/ts 格式视频'
     return
   }
   if (file.size > MAX_MB * 1024 * 1024) {

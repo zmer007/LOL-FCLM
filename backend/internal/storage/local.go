@@ -39,7 +39,15 @@ var allowedImageExt = map[string]string{
 }
 
 var allowedVideoExt = map[string]string{
-	".mp4": ".mp4",
+	".mp4":  ".mp4",
+	".mkv":  ".mkv",
+	".mov":  ".mov",
+	".avi":  ".avi",
+	".webm": ".webm",
+	".flv":  ".flv",
+	".wmv":  ".wmv",
+	".m4v":  ".m4v",
+	".ts":   ".ts",
 }
 
 type LocalStore struct {
@@ -119,7 +127,8 @@ func (s *LocalStore) SaveArticleImage(filename string, src io.Reader, size int64
 		})
 }
 
-// SaveVideo 保存投稿视频（multipart 流式落盘），目录 /media/videos/yyyymm/，仅 mp4。
+// SaveVideo 保存投稿视频（multipart 流式落盘），目录 /media/videos/yyyymm/。
+// 支持 mp4/mkv/mov/avi/webm/flv/wmv/m4v/ts 等常见格式。
 func (s *LocalStore) SaveVideo(fh *multipart.FileHeader) (string, error) {
 	src, err := fh.Open()
 	if err != nil {
@@ -127,10 +136,10 @@ func (s *LocalStore) SaveVideo(fh *multipart.FileHeader) (string, error) {
 	}
 	defer src.Close()
 	return s.saveFile("videos", fh.Filename, src, fh.Size, s.maxVideoBytes, allowedVideoExt,
-		"仅支持 MP4 格式视频", func(detected string) bool {
-			// 部分 mp4 的 ftyp 品牌不在 Go 内置表，会被判为 octet-stream；结合扩展名一并放行
-			return detected == "video/mp4" || detected == "application/octet-stream" ||
-				detected == "video/quicktime"
+		"仅支持 mp4/mkv/mov/avi/webm/flv/wmv/m4v/ts 格式视频", func(detected string) bool {
+			// Go 内置 http.DetectContentType 仅能识别 mp4/webm/ogg，其余格式会被判为
+			// application/octet-stream；扩展名已在上层白名单校验，此处宽松放行。
+			return strings.HasPrefix(detected, "video/") || detected == "application/octet-stream"
 		})
 }
 
