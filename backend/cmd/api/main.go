@@ -2,9 +2,11 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -28,7 +30,39 @@ func getenv(key, def string) string {
 	return def
 }
 
+// loadDotEnv 简易加载 .env 文件（仅本地 go run 开发用；Docker 由 compose 注入环境变量）。
+// 不覆盖已存在的环境变量。
+func loadDotEnv() {
+	for _, p := range []string{".env", "../.env", "../../.env"} {
+		f, err := os.Open(p)
+		if err != nil {
+			continue
+		}
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			idx := strings.Index(line, "=")
+			if idx < 0 {
+				continue
+			}
+			key := strings.TrimSpace(line[:idx])
+			val := strings.Trim(strings.TrimSpace(line[idx+1:]), `"'`)
+			if key != "" && os.Getenv(key) == "" {
+				os.Setenv(key, val)
+			}
+		}
+		f.Close()
+		log.Printf("loaded env from %s", p)
+		return
+	}
+}
+
 func main() {
+	loadDotEnv()
+
 	cfg := config.Load()
 
 	// 数据库
@@ -64,7 +98,7 @@ func main() {
 	adminUserService := service.NewAdminUserService(userRepo)
 	contentService := service.NewContentService(contentRepo, heroRepo, userRepo, assetRepo, runeRepo, settingRepo, favoriteRepo, store)
 	// 本地 Data Dragon 数据包（离线部署，从 assets 目录读取）
-	assetsDir := getenv("ASSETS_DIR", "/app/assets")
+	assetsDir := getenv("ASSETS_DIR", getenv("ASSETS_PATH", "/app/assets"))
 	localReader, err := ddragon.NewLocalReader(assetsDir)
 	if err != nil {
 		log.Fatalf("加载本地 Data Dragon 数据失败: %v", err)

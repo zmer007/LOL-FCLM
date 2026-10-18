@@ -123,7 +123,7 @@ func (s *SyncService) Run() error {
 	for _, ch := range champs.Data {
 		heroJobs = append(heroJobs, iconJob{
 			dir: "heroes", file: ch.Image.Full,
-			rel: "img/champion/" + ch.Image.Full,
+			rel: "champion/" + ch.Image.Full,
 			apply: func(url string) error {
 				return s.heroes.UpsertDDragon(&model.Hero{
 					Name: ch.Name, Title: ch.Title, Lane: "",
@@ -147,7 +147,7 @@ func (s *SyncService) Run() error {
 		sub := itemSubCategory(item.Tags)
 		itemJobs = append(itemJobs, iconJob{
 			dir: "items", file: file,
-			rel: "img/item/" + file,
+			rel: "item/" + file,
 			apply: func(url string) error {
 				return s.assets.UpsertDDragon(&model.GameAsset{
 					Category: model.AssetCategoryItem, SubCategory: sub,
@@ -166,7 +166,7 @@ func (s *SyncService) Run() error {
 		}
 		spellJobs = append(spellJobs, iconJob{
 			dir: "spells", file: sp.Image.Full,
-			rel: "img/spell/" + sp.Image.Full,
+			rel: "spell/" + sp.Image.Full,
 			apply: func(url string) error {
 				return s.assets.UpsertDDragon(&model.GameAsset{
 					Category: model.AssetCategorySkill, SubCategory: "召唤师技能",

@@ -47,7 +47,6 @@
       <div class="section-title">版本信息</div>
       <div class="kv"><span>应用版本</span><span>v0.1.0</span></div>
       <div class="kv"><span>技术栈</span><span>Vue 3 + Go + Gin + MySQL</span></div>
-      <div class="kv"><span>数据来源</span><span>英雄联盟 Data Dragon</span></div>
       <div class="kv"><span>更新日期</span><span>2026-10-18</span></div>
     </section>
 

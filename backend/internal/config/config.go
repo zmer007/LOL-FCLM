@@ -2,6 +2,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 )
@@ -33,9 +34,9 @@ type Config struct {
 func Load() Config {
 	return Config{
 		Addr:              getenv("APP_ADDR", ":9090"),
-		DBDSN:             os.Getenv("DB_DSN"),
+		DBDSN:             dbDSN(),
 		ValkeyAddr:        getenv("VALKEY_ADDR", "valkey:6379"),
-		MediaRoot:         getenv("MEDIA_ROOT", "/data/media"),
+		MediaRoot:         getenv("MEDIA_ROOT", getenv("MEDIA_PATH", "/data/media")),
 		JWTSecret:         getenv("JWT_SECRET", "dev-secret-change-me"),
 		JWTExpireHours:    getenvInt("JWT_EXPIRE_HOURS", 168),
 		AdminUsername:     getenv("ADMIN_USERNAME", "admin"),
@@ -50,6 +51,19 @@ func Load() Config {
 		CodeTTLSeconds:    getenvInt("CODE_TTL_SECONDS", 600),
 		CodeResendSeconds: getenvInt("CODE_RESEND_SECONDS", 60),
 	}
+}
+
+// dbDSN 返回数据库 DSN。优先使用 DB_DSN；否则由 DB_USER/DB_PASSWORD/DB_HOST/DB_PORT/DB_NAME 拼接。
+func dbDSN() string {
+	if dsn := os.Getenv("DB_DSN"); dsn != "" {
+		return dsn
+	}
+	user := getenv("DB_USER", "root")
+	pass := os.Getenv("DB_PASSWORD")
+	host := getenv("DB_HOST", "127.0.0.1")
+	port := getenv("DB_PORT", "3306")
+	name := getenv("DB_NAME", "lol")
+	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=true&loc=Local", user, pass, host, port, name)
 }
 
 func getenv(key, fallback string) string {

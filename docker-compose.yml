@@ -8,8 +8,6 @@ services:
     image: lol-frontend:latest
     ports:
       - "80:80"
-    volumes:
-      - ${MEDIA_PATH:-./data/media}:/data/media:ro   # Nginx 直读用户上传文件（/media/）
     depends_on:
       - api
     networks:
