@@ -68,6 +68,7 @@
       </div>
 
       <div class="v-actions">
+        <button type="button" class="act" @click="onFavorite">☆ 收藏</button>
         <button type="button" class="act" @click="onDownload">⬇ 下载</button>
         <button type="button" class="act" @click="onShare">分享</button>
       </div>
@@ -125,6 +126,10 @@ function toast(msg: string) {
   toastTimer = setTimeout(() => (toastMsg.value = ''), 2000)
 }
 
+function onFavorite() {
+  if (!requireAuth()) return
+  toast('收藏成功')
+}
 function onDownload() {
   if (!requireAuth()) return
   const url = content.value?.videoUrl
