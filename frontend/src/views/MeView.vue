@@ -4,6 +4,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { listMyContents, type Content } from '../api/content'
 import { sendMessage, listMyMessages, type Message } from '../api/message'
+import { listMyFavorites } from '../api/favorite'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -11,6 +12,9 @@ const isAdmin = computed(() => userStore.user?.role === 'admin')
 
 const myContents = ref<Content[]>([])
 const loading = ref(true)
+
+// 收藏数量
+const favCount = ref(0)
 
 const pendingList = computed(() => myContents.value.filter((c) => c.status === 'pending'))
 const rejectedList = computed(() => myContents.value.filter((c) => c.status === 'rejected'))
@@ -67,13 +71,22 @@ async function loadMessages() {
   }
 }
 
+async function loadFavorites() {
+  try {
+    const res = await listMyFavorites()
+    favCount.value = res.list.length
+  } catch {
+    favCount.value = 0
+  }
+}
+
 onMounted(async () => {
   try {
     await userStore.loadMe()
     if (isAdmin.value) {
       myContents.value = (await listMyContents()).list
     }
-    await loadMessages()
+    await Promise.all([loadMessages(), loadFavorites()])
   } finally {
     loading.value = false
   }
@@ -97,6 +110,12 @@ function onLogout() {
             注册于 {{ new Date(userStore.user.createdAt).toLocaleDateString('zh-CN') }}
           </span>
         </div>
+      </div>
+      <div class="me-stats">
+        <RouterLink to="/favorites" class="me-stat">
+          <b>{{ favCount }}</b>
+          <span>收藏</span>
+        </RouterLink>
       </div>
       <div class="me-actions">
         <RouterLink v-if="userStore.user?.role === 'admin'" class="me-admin" to="/admin">
@@ -256,6 +275,38 @@ function onLogout() {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
+}
+.me-stats {
+  display: flex;
+  flex-shrink: 0;
+}
+.me-stat {
+  text-align: center;
+  padding: 0 22px;
+  border-left: 1px solid var(--line-soft);
+  text-decoration: none;
+  color: inherit;
+}
+.me-stat b {
+  display: block;
+  font-size: 15px;
+  color: var(--gold-bright);
+  font-weight: 600;
+  transition: color 0.15s;
+}
+.me-stat:hover b {
+  color: var(--gold);
+}
+.me-stat span {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--faint);
+  transition: color 0.15s;
+}
+.me-stat:hover span {
+  color: var(--mute);
 }
 .me-admin {
   font-size: 12.5px;

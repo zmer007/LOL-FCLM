@@ -51,6 +51,7 @@ type ContentVO struct {
 	Rank           string           `json:"rank"`
 	Perspective    string           `json:"perspective"` // 相对查询英雄：self=操作你 / opponent=被操作
 	CanEdit        bool             `json:"canEdit"`
+	Favorited      bool             `json:"favorited"`
 	Title          string           `json:"title"`
 	Body           string           `json:"body"`
 	VideoURL       string           `json:"videoUrl"`
@@ -80,13 +81,14 @@ type BuildVO struct {
 }
 
 type ContentService struct {
-	contents *repository.ContentRepository
-	heroes   *repository.HeroRepository
-	users    *repository.UserRepository
-	assets   *repository.AssetRepository
-	runes    *repository.RuneRepository
-	settings *repository.SettingRepository
-	store    *storage.LocalStore
+	contents  *repository.ContentRepository
+	heroes    *repository.HeroRepository
+	users     *repository.UserRepository
+	assets    *repository.AssetRepository
+	runes     *repository.RuneRepository
+	settings  *repository.SettingRepository
+	favorites *repository.FavoriteRepository
+	store     *storage.LocalStore
 }
 
 func NewContentService(
@@ -96,10 +98,12 @@ func NewContentService(
 	assets *repository.AssetRepository,
 	runes *repository.RuneRepository,
 	settings *repository.SettingRepository,
+	favorites *repository.FavoriteRepository,
 	store *storage.LocalStore,
 ) *ContentService {
 	return &ContentService{
-		contents: contents, heroes: heroes, users: users, assets: assets, runes: runes, settings: settings, store: store,
+		contents: contents, heroes: heroes, users: users, assets: assets, runes: runes,
+		settings: settings, favorites: favorites, store: store,
 	}
 }
 
@@ -311,6 +315,19 @@ func (s *ContentService) enrich(list []model.Content, queryHeroID, viewerUID int
 		return nil, err
 	}
 
+	// 批量查询当前用户的收藏状态
+	var favSet map[int64]struct{}
+	if viewerUID != 0 {
+		cids := make([]int64, 0, len(list))
+		for _, c := range list {
+			cids = append(cids, c.ID)
+		}
+		favSet, err = s.favorites.ExistsBatch(viewerUID, cids)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	out := make([]ContentVO, 0, len(list))
 	for _, c := range list {
 		vo := ContentVO{
@@ -318,6 +335,9 @@ func (s *ContentService) enrich(list []model.Content, queryHeroID, viewerUID int
 			RejectReason: c.RejectReason, HeroID: c.HeroID, Views: c.Views,
 			CreatedAt: c.CreatedAt.Format("2006-01-02 15:04"), UpdatedAt: c.UpdatedAt.Format("2006-01-02 15:04"),
 			CanEdit: c.AuthorID == viewerUID || isAdmin,
+		}
+		if favSet != nil {
+			_, vo.Favorited = favSet[c.ID]
 		}
 		if u := userMap[c.AuthorID]; u != nil {
 			vo.AuthorName = u.Username
@@ -416,6 +436,18 @@ func (s *ContentService) MyList(uid int64, status string) ([]ContentVO, error) {
 		return nil, err
 	}
 	return s.enrich(list, 0, uid, false, false)
+}
+
+// ListByIDs 按内容 ID 列表获取内容视图（用于收藏列表等），viewerUID 用于判断收藏与可编辑。
+func (s *ContentService) ListByIDs(ids []int64, viewerUID int64) ([]ContentVO, error) {
+	if len(ids) == 0 {
+		return []ContentVO{}, nil
+	}
+	list, err := s.contents.FindByIDs(ids)
+	if err != nil {
+		return nil, err
+	}
+	return s.enrich(list, 0, viewerUID, false, true)
 }
 
 func (s *ContentService) ReviewList(status string, page, size int) (*repository.ContentPage, []ContentVO, error) {

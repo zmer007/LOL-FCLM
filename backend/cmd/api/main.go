@@ -47,14 +47,16 @@ func main() {
 	contentRepo := repository.NewContentRepository(db)
 	settingRepo := repository.NewSettingRepository(db)
 	messageRepo := repository.NewMessageRepository(db)
+	favoriteRepo := repository.NewFavoriteRepository(db)
 
 	mailSvc := service.NewMailService(cfg)
 	authService := service.NewAuthService(userRepo, valkey, mailSvc, cfg.JWTSecret, cfg.JWTExpireHours, cfg.CodeTTLSeconds, cfg.CodeResendSeconds)
 	adminService := service.NewAdminService(heroRepo, assetRepo, store)
 	adminUserService := service.NewAdminUserService(userRepo)
-	contentService := service.NewContentService(contentRepo, heroRepo, userRepo, assetRepo, runeRepo, settingRepo, store)
+	contentService := service.NewContentService(contentRepo, heroRepo, userRepo, assetRepo, runeRepo, settingRepo, favoriteRepo, store)
 	syncService := service.NewSyncService(ddragon.New(), heroRepo, assetRepo, runeRepo, settingRepo, store)
 	messageService := service.NewMessageService(messageRepo, userRepo, valkey)
+	favoriteService := service.NewFavoriteService(favoriteRepo, contentService)
 
 	authHandler := handler.NewAuthHandler(authService)
 	heroHandler := handler.NewHeroHandler(heroRepo)
@@ -65,6 +67,7 @@ func main() {
 	adminUserHandler := handler.NewAdminUserHandler(adminUserService)
 	syncHandler := handler.NewSyncHandler(syncService)
 	messageHandler := handler.NewMessageHandler(messageService)
+	favoriteHandler := handler.NewFavoriteHandler(favoriteService)
 
 	// 确保管理员账号存在（账号密码来自环境变量）
 	if err := authService.EnsureAdmin(cfg.AdminUsername, cfg.AdminPassword); err != nil {
@@ -114,6 +117,9 @@ func main() {
 			// 普通用户给管理员留言
 			auth.POST("/messages", messageHandler.Send)
 			auth.GET("/messages/mine", messageHandler.Mine)
+			// 收藏
+			auth.POST("/favorites/:contentId", favoriteHandler.Toggle)
+			auth.GET("/favorites/mine", favoriteHandler.ListMine)
 		}
 
 		// 内容投稿（仅管理员，路径保持 /api/contents 不变）

@@ -22,6 +22,7 @@ export interface Content {
   rank: string
   perspective: 'self' | 'opponent' | ''
   canEdit: boolean
+  favorited: boolean
   title: string
   body: string
   videoUrl: string

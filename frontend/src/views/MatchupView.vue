@@ -24,9 +24,6 @@
             <span v-for="r in hero.roles" :key="r" class="tag">{{ r }}</span>
           </div>
         </div>
-        <div class="banner-actions">
-          <button type="button" class="favorite" @click="toast('收藏功能即将上线')">☆ 收藏</button>
-        </div>
       </div>
 
       <!-- 推荐装备 & 符文（提取自已通过内容） -->
@@ -122,11 +119,6 @@
         </div>
       </section>
     </template>
-
-    <!-- 轻提示 -->
-    <transition name="toast">
-      <div v-if="toastMsg" class="toast">{{ toastMsg }}</div>
-    </transition>
   </div>
 </template>
 
@@ -271,14 +263,6 @@ onMounted(async () => {
     loading.value = false
   }
 })
-
-const toastMsg = ref('')
-let toastTimer: ReturnType<typeof setTimeout> | undefined
-function toast(msg: string) {
-  toastMsg.value = msg
-  clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => (toastMsg.value = ''), 2000)
-}
 </script>
 
 <style scoped>
@@ -357,23 +341,6 @@ function toast(msg: string) {
   border: 1px solid var(--gold);
   border-radius: 999px;
   padding: 2px 12px;
-}
-.banner-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: flex-end;
-}
-.favorite {
-  font-family: inherit;
-  font-size: 13px;
-  color: var(--mute);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-}
-.favorite:hover {
-  color: var(--gold);
 }
 
 /* 区块 */
@@ -629,28 +596,5 @@ function toast(msg: string) {
   text-align: center;
   color: var(--faint);
   font-size: 14px;
-}
-
-/* toast */
-.toast {
-  position: fixed;
-  left: 50%;
-  bottom: 48px;
-  transform: translateX(-50%);
-  background: rgba(10, 20, 35, 0.95);
-  border: 1px solid var(--gold);
-  color: var(--gold-bright);
-  font-size: 13px;
-  padding: 10px 22px;
-  border-radius: 999px;
-  z-index: 100;
-}
-.toast-enter-active,
-.toast-leave-active {
-  transition: opacity 0.2s;
-}
-.toast-enter-from,
-.toast-leave-to {
-  opacity: 0;
 }
 </style>

@@ -61,7 +61,9 @@
       </div>
 
       <div class="a-actions">
-        <button type="button" class="act" @click="onFavorite">☆ 收藏</button>
+        <button type="button" class="act" :class="{ active: content.favorited }" @click="onFavorite">
+          {{ content.favorited ? '★ 已收藏' : '☆ 收藏' }}
+        </button>
         <button type="button" class="act" @click="onDownload">⬇ 下载</button>
         <button type="button" class="act" @click="onShare">分享</button>
       </div>
@@ -82,6 +84,7 @@ import { getRuneTrees, type RuneTree, type Shard } from '../../api/build'
 import AdminAuditBar from '../../components/AdminAuditBar.vue'
 import BuildBlock from '../../components/build/BuildBlock.vue'
 import { requireAuth } from '../../utils/auth'
+import { toggleFavorite } from '../../api/favorite'
 
 const route = useRoute()
 const id = Number(route.params.id) || 0
@@ -119,9 +122,16 @@ function toast(msg: string) {
   toastTimer = setTimeout(() => (toastMsg.value = ''), 2000)
 }
 
-function onFavorite() {
+async function onFavorite() {
   if (!requireAuth()) return
-  toast('收藏成功')
+  if (!content.value) return
+  try {
+    const res = await toggleFavorite(content.value.id)
+    content.value.favorited = res.favorited
+    toast(res.favorited ? '收藏成功' : '已取消收藏')
+  } catch (e: any) {
+    toast(e?.message || '操作失败')
+  }
 }
 function onDownload() {
   if (!requireAuth()) return
@@ -333,6 +343,11 @@ onMounted(async () => {
 .act:hover {
   border-color: var(--gold);
   color: var(--gold);
+}
+.act.active {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: rgba(200, 170, 110, 0.1);
 }
 
 /* toast */
