@@ -1,15 +1,12 @@
 package service
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log"
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"roadside-league/backend/internal/ddragon"
@@ -18,18 +15,16 @@ import (
 	"roadside-league/backend/internal/storage"
 )
 
-var ErrSyncRunning = errors.New("sync already running")
-
-// 同步状态（也直接作为接口返回 JSON）
+// SyncState 同步结果状态。
 type SyncState struct {
 	Running    bool   `json:"running"`
-	Status     string `json:"status"` // idle / running / success / skipped / failed
+	Status     string `json:"status"` // idle / success / failed
 	Version    string `json:"version"`
 	Stage      string `json:"stage"`
-	Total      int    `json:"total"`      // 全部作业数
-	Done       int    `json:"done"`       // 全部完成数（含失败）
-	StageTotal int    `json:"stageTotal"` // 当前阶段总数
-	StageDone  int    `json:"stageDone"`  // 当前阶段完成数
+	Total      int    `json:"total"`
+	Done       int    `json:"done"`
+	StageTotal int    `json:"stageTotal"`
+	StageDone  int    `json:"stageDone"`
 	Failed     int    `json:"failed"`
 	Downloaded int    `json:"downloaded"`
 	Message    string `json:"message"`
@@ -38,7 +33,7 @@ type SyncState struct {
 }
 
 type SyncService struct {
-	cli      *ddragon.Client
+	local    *ddragon.LocalReader
 	heroes   *repository.HeroRepository
 	assets   *repository.AssetRepository
 	runes    *repository.RuneRepository
@@ -50,7 +45,7 @@ type SyncService struct {
 }
 
 func NewSyncService(
-	cli *ddragon.Client,
+	local *ddragon.LocalReader,
 	heroes *repository.HeroRepository,
 	assets *repository.AssetRepository,
 	runes *repository.RuneRepository,
@@ -58,12 +53,12 @@ func NewSyncService(
 	store *storage.LocalStore,
 ) *SyncService {
 	return &SyncService{
-		cli: cli, heroes: heroes, assets: assets, runes: runes,
+		local: local, heroes: heroes, assets: assets, runes: runes,
 		settings: settings, store: store,
 	}
 }
 
-// State 返回当前同步状态（附带上次成功版本与时间）。
+// State 返回当前同步状态。
 func (s *SyncService) State() SyncState {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -80,145 +75,55 @@ func (s *SyncService) State() SyncState {
 	return st
 }
 
-// BackfillMeta 启动时异步回填英雄元数据：
-// 别名来自内置表（必定回填），官方定位来自 Data Dragon tags（尽力拉取，失败不影响启动）。
-func (s *SyncService) BackfillMeta() {
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
-		rolesByID := map[string][]string{}
-		version, _ := s.settings.Get(model.SettingDDragonVersion)
-		if version == "" {
-			if v, err := s.cli.LatestVersion(ctx); err == nil {
-				version = v
-			}
-		}
-		rolesOK := false
-		if version != "" {
-			if champs, err := s.cli.Champions(ctx, version); err == nil {
-				rolesOK = true
-				for id, ch := range champs.Data {
-					rolesByID[id] = ddragon.RolesFromTags(ch.Tags)
-				}
-			} else {
-				log.Printf("backfill roles fetch failed: %v", err)
-			}
-		}
-
-		for id, aliases := range ddragon.HeroAliases {
-			joined := model.JoinList(aliases)
-			var err error
-			if rolesOK {
-				err = s.heroes.UpdateMetaByDDragon(id, joined, model.JoinList(rolesByID[id]))
-			} else {
-				err = s.heroes.UpdateAliasesByDDragon(id, joined)
-			}
-			if err != nil {
-				log.Printf("WARN backfill hero meta %s failed: %v", id, err)
-			}
-		}
-		log.Printf("hero meta backfill finished (roles from datadragon: %v)", rolesOK)
-	}()
-}
-
-// Start 异步触发一次同步；已在运行时返回 ErrSyncRunning。
-func (s *SyncService) Start(force bool) error {
+// Run 从本地 assets 离线同步数据到数据库与媒体目录。
+// 在启动时同步调用；若版本未变则跳过。
+func (s *SyncService) Run() error {
 	s.mu.Lock()
-	if s.state.Running {
-		s.mu.Unlock()
-		return ErrSyncRunning
-	}
-	s.state = SyncState{Running: true, Status: "running", Stage: "准备中", StartedAt: nowStr(), Version: s.state.Version}
+	s.state = SyncState{Running: true, Status: "running", Stage: "准备中", StartedAt: nowStr()}
 	s.mu.Unlock()
 
-	go func() {
-		if err := s.run(force); err != nil {
-			s.finish("failed", err.Error())
-		}
-	}()
-	return nil
-}
-
-func (s *SyncService) finish(status, message string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.state.Running = false
-	s.state.Status = status
-	s.state.Message = message
-	s.state.Stage = ""
-	s.state.FinishedAt = nowStr()
-}
-
-func (s *SyncService) setStage(stage string, total int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.state.Stage = stage
-	s.state.Total += total
-	s.state.StageTotal = total
-	s.state.StageDone = 0
-}
-
-func (s *SyncService) tick(downloaded bool, failed bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.state.Done++
-	s.state.StageDone++
-	if downloaded {
-		s.state.Downloaded++
-	}
-	if failed {
-		s.state.Failed++
-	}
-}
-
-func (s *SyncService) run(force bool) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
-
-	// 1. 最新版本号
-	version, err := s.cli.LatestVersion(ctx)
-	if err != nil {
-		return fmt.Errorf("获取最新版本失败: %w", err)
-	}
+	version := s.local.Version()
 	s.mu.Lock()
 	s.state.Version = version
 	s.mu.Unlock()
 
-	if !force {
-		if current, _ := s.settings.Get(model.SettingDDragonVersion); current == version && current != "" {
-			s.finish("skipped", "当前已是最新版本 "+version)
-			return nil
-		}
+	// 版本未变则跳过（meta 校验通过即视为一致）
+	if current, _ := s.settings.Get(model.SettingDDragonVersion); current == version && current != "" {
+		s.finish("skipped", "当前已是最新版本 "+version)
+		return nil
 	}
 
-	// 2. 拉取四类 JSON
-	s.setStage("获取官方数据", 0)
-	champs, err := s.cli.Champions(ctx, version)
+	// 1. 读取 JSON 数据
+	s.setStage("读取本地数据", 0)
+	champs, err := s.local.Champions()
 	if err != nil {
-		return fmt.Errorf("获取英雄数据失败: %w", err)
+		s.finish("failed", err.Error())
+		return err
 	}
-	items, err := s.cli.Items(ctx, version)
+	items, err := s.local.Items()
 	if err != nil {
-		return fmt.Errorf("获取装备数据失败: %w", err)
+		s.finish("failed", err.Error())
+		return err
 	}
-	summoners, err := s.cli.Summoners(ctx, version)
+	summoners, err := s.local.Summoners()
 	if err != nil {
-		return fmt.Errorf("获取召唤师技能数据失败: %w", err)
+		s.finish("failed", err.Error())
+		return err
 	}
-	runeTrees, err := s.cli.Runes(ctx, version)
+	runeTrees, err := s.local.Runes()
 	if err != nil {
-		return fmt.Errorf("获取符文数据失败: %w", err)
+		s.finish("failed", err.Error())
+		return err
 	}
 
 	var failedTotal int64
 
-	// 3. 英雄
+	// 2. 英雄
 	heroJobs := make([]iconJob, 0, len(champs.Data))
 	for _, ch := range champs.Data {
 		heroJobs = append(heroJobs, iconJob{
 			dir: "heroes", file: ch.Image.Full,
-			remote: "img/champion/" + ch.Image.Full,
+			rel: "img/champion/" + ch.Image.Full,
 			apply: func(url string) error {
 				return s.heroes.UpsertDDragon(&model.Hero{
 					Name: ch.Name, Title: ch.Title, Lane: "",
@@ -230,9 +135,9 @@ func (s *SyncService) run(force bool) error {
 			},
 		})
 	}
-	failedTotal += int64(s.runJobs(ctx, "同步英雄图标", heroJobs))
+	failedTotal += int64(s.runJobs("同步英雄图标", heroJobs))
 
-	// 4. 装备（仅召唤师峡谷可购买）
+	// 3. 装备
 	itemJobs := make([]iconJob, 0, len(items.Data))
 	for id, item := range items.Data {
 		if !summonerRiftItem(id, item) {
@@ -242,7 +147,7 @@ func (s *SyncService) run(force bool) error {
 		sub := itemSubCategory(item.Tags)
 		itemJobs = append(itemJobs, iconJob{
 			dir: "items", file: file,
-			remote: "img/item/" + file,
+			rel: "img/item/" + file,
 			apply: func(url string) error {
 				return s.assets.UpsertDDragon(&model.GameAsset{
 					Category: model.AssetCategoryItem, SubCategory: sub,
@@ -251,9 +156,9 @@ func (s *SyncService) run(force bool) error {
 			},
 		})
 	}
-	failedTotal += int64(s.runJobs(ctx, "同步装备图标", itemJobs))
+	failedTotal += int64(s.runJobs("同步装备图标", itemJobs))
 
-	// 5. 召唤师技能（仅经典峡谷模式）
+	// 4. 召唤师技能
 	spellJobs := make([]iconJob, 0)
 	for _, sp := range summoners.Data {
 		if !containsStr(sp.Modes, "CLASSIC") || sp.Image.Full == "" {
@@ -261,7 +166,7 @@ func (s *SyncService) run(force bool) error {
 		}
 		spellJobs = append(spellJobs, iconJob{
 			dir: "spells", file: sp.Image.Full,
-			remote: "img/spell/" + sp.Image.Full,
+			rel: "img/spell/" + sp.Image.Full,
 			apply: func(url string) error {
 				return s.assets.UpsertDDragon(&model.GameAsset{
 					Category: model.AssetCategorySkill, SubCategory: "召唤师技能",
@@ -270,10 +175,9 @@ func (s *SyncService) run(force bool) error {
 			},
 		})
 	}
-	failedTotal += int64(s.runJobs(ctx, "同步召唤师技能图标", spellJobs))
+	failedTotal += int64(s.runJobs("同步召唤师技能图标", spellJobs))
 
-	// 6. 符文：每个符文系本身 + 各排符文（用数字 id 命名避免重名）。
-	//    同时双写结构化 RuneTree/Rune（含排次/基石标记）供制作器与对线页使用。
+	// 5. 符文
 	runeJobs := make([]iconJob, 0)
 	for _, tree := range runeTrees {
 		treeID := int64(tree.ID)
@@ -282,7 +186,7 @@ func (s *SyncService) run(force bool) error {
 		treeFile := strconv.Itoa(tree.ID) + ".png"
 		runeJobs = append(runeJobs, iconJob{
 			dir: "runes", file: treeFile, global: true,
-			remote: "img/" + treeIcon,
+			rel: treeIcon,
 			apply: func(url string) error {
 				if err := s.assets.UpsertDDragon(&model.GameAsset{
 					Category: model.AssetCategoryRune, SubCategory: treeName,
@@ -305,7 +209,7 @@ func (s *SyncService) run(force bool) error {
 				runeFile := strconv.Itoa(rune_.ID) + ".png"
 				runeJobs = append(runeJobs, iconJob{
 					dir: "runes", file: runeFile, global: true,
-					remote: "img/" + runeIcon,
+					rel: runeIcon,
 					apply: func(url string) error {
 						if err := s.assets.UpsertDDragon(&model.GameAsset{
 							Category: model.AssetCategoryRune, SubCategory: treeName,
@@ -322,34 +226,68 @@ func (s *SyncService) run(force bool) error {
 			}
 		}
 	}
-	failedTotal += int64(s.runJobs(ctx, "同步符文图标", runeJobs))
+	failedTotal += int64(s.runJobs("同步符文图标", runeJobs))
 
-	// 6.5 属性碎片：固定 6 张图（Community Dragon 镜像），仅落盘不写库
+	// 6. 属性碎片（仅落盘）
 	shardJobs := make([]iconJob, 0, 6)
 	for _, f := range ddragon.ShardFiles() {
 		file := f + ".png"
 		shardJobs = append(shardJobs, iconJob{
-			dir: "shards", file: file, cdragon: true, remote: f,
+			dir: "shards", file: file, cdragon: true, rel: f,
 			apply: func(string) error { return nil },
 		})
 	}
-	failedTotal += int64(s.runJobs(ctx, "同步属性碎片", shardJobs))
+	failedTotal += int64(s.runJobs("同步属性碎片", shardJobs))
 
-	// 7. 全部成功才记录版本（有失败时下次点击仍会重试缺失图标）
+	// 7. 记录版本
 	if failedTotal > 0 {
-		s.finish("success", fmt.Sprintf("版本 %s 同步完成，%d 个图标失败，可再次点击更新重试", version, failedTotal))
+		s.finish("success", fmt.Sprintf("版本 %s 同步完成，%d 个图标失败", version, failedTotal))
 		return nil
 	}
 	if err := s.settings.Set(model.SettingDDragonVersion, version); err != nil {
-		return fmt.Errorf("写入同步版本失败: %w", err)
+		s.finish("failed", "写入同步版本失败: "+err.Error())
+		return err
 	}
 	if err := s.settings.Set(model.SettingDDragonLastSync, nowStr()); err != nil {
-		return fmt.Errorf("写入同步时间失败: %w", err)
+		s.finish("failed", "写入同步时间失败: "+err.Error())
+		return err
 	}
 
 	st := s.State()
-	s.finish("success", fmt.Sprintf("已同步到版本 %s（%d 项，新下载 %d 个图标）", version, st.Done, st.Downloaded))
+	s.finish("success", fmt.Sprintf("已同步到版本 %s（%d 项，新复制 %d 个图标）", version, st.Done, st.Downloaded))
 	return nil
+}
+
+func (s *SyncService) finish(status, message string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.state.Running = false
+	s.state.Status = status
+	s.state.Message = message
+	s.state.Stage = ""
+	s.state.FinishedAt = nowStr()
+}
+
+func (s *SyncService) setStage(stage string, total int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.state.Stage = stage
+	s.state.Total += total
+	s.state.StageTotal = total
+	s.state.StageDone = 0
+}
+
+func (s *SyncService) tick(copied bool, failed bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.state.Done++
+	s.state.StageDone++
+	if copied {
+		s.state.Downloaded++
+	}
+	if failed {
+		s.state.Failed++
+	}
 }
 
 // ---------- 并发执行 ----------
@@ -357,13 +295,13 @@ func (s *SyncService) run(force bool) error {
 type iconJob struct {
 	dir     string
 	file    string
-	remote  string                      // CDN 上的相对路径（cdragon=true 时为不含扩展名的文件名）
-	global  bool                        // true 表示与版本无关（cdn/img/，符文图标）
-	cdragon bool                        // true 表示走 Community Dragon 镜像（属性碎片）
-	apply   func(localURL string) error // 落盘后 upsert 数据库
+	rel     string // assets 中的相对路径
+	global  bool   // 符文图标为全局路径
+	cdragon bool   // 属性碎片
+	apply   func(localURL string) error
 }
 
-func (s *SyncService) runJobs(ctx context.Context, stage string, jobs []iconJob) int {
+func (s *SyncService) runJobs(stage string, jobs []iconJob) int {
 	s.setStage(stage, len(jobs))
 	var wg sync.WaitGroup
 	var failCount int64
@@ -377,48 +315,49 @@ func (s *SyncService) runJobs(ctx context.Context, stage string, jobs []iconJob)
 			defer func() { <-sem }()
 
 			localURL := s.store.IconURL(job.dir, job.file)
-			downloaded := false
+			copied := false
 			failed := false
 
+			// 从 assets 复制图标到媒体目录（若不存在）
 			if !s.store.IconExists(job.dir, job.file) {
-				var body io.ReadCloser
+				var src io.ReadCloser
 				var err error
 				switch {
 				case job.cdragon:
-					body, err = s.cli.OpenShardIcon(ctx, job.remote)
+					src, err = s.local.OpenShardIcon(job.rel)
 				case job.global:
-					body, err = s.cli.OpenIconGlobal(ctx, job.remote)
+					src, err = s.local.OpenIconGlobal(job.rel)
 				default:
-					body, err = s.cli.OpenIcon(ctx, s.State().Version, job.remote)
+					src, err = s.local.OpenIcon(job.rel)
 				}
 				if err == nil {
-					url, wrote, saveErr := s.store.SaveIconFile(job.dir, job.file, body)
-					body.Close()
+					url, wrote, saveErr := s.store.SaveIconFile(job.dir, job.file, src)
+					src.Close()
 					if saveErr == nil {
-						localURL, downloaded = url, wrote
+						localURL, copied = url, wrote
 					} else {
 						err = saveErr
 					}
 				}
 				if err != nil {
-					log.Printf("sync icon failed [%s/%s] %s: %v", job.dir, job.file, job.remote, err)
+					log.Printf("sync icon failed [%s/%s] %s: %v", job.dir, job.file, job.rel, err)
 					failed = true
-					atomic.AddInt64(&failCount, 1)
+					failCount++
 				}
 			}
 
 			if !failed {
 				if err := job.apply(localURL); err != nil {
 					log.Printf("sync upsert failed [%s/%s]: %v", job.dir, job.file, err)
-					atomic.AddInt64(&failCount, 1)
 					failed = true
+					failCount++
 				}
 			}
-			s.tick(downloaded, failed)
+			s.tick(copied, failed)
 		}()
 	}
 	wg.Wait()
-	return int(atomic.LoadInt64(&failCount))
+	return int(failCount)
 }
 
 // ---------- 装备筛选与分类 ----------
@@ -427,7 +366,7 @@ func summonerRiftItem(id string, item ddragon.Item) bool {
 	if item.Name == "" || item.Image.Full == "" {
 		return false
 	}
-	if !item.Maps["11"] { // 11 = 召唤师峡谷
+	if !item.Maps["11"] {
 		return false
 	}
 	if item.InStore != nil && !*item.InStore {
@@ -436,7 +375,6 @@ func summonerRiftItem(id string, item ddragon.Item) bool {
 	if item.Gold.Purchasable != nil && !*item.Gold.Purchasable {
 		return false
 	}
-	// 排除纯数字异常与基础占位（如 0 号物品）
 	if id == "0" {
 		return false
 	}

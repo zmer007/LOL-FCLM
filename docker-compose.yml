@@ -30,8 +30,10 @@ services:
       DB_DSN: "${DB_USER}:${DB_PASSWORD}@tcp(mysql:3306)/${DB_NAME}?charset=utf8mb4&parseTime=true&loc=Local"
       VALKEY_ADDR: "valkey:6379"
       MEDIA_ROOT: "/data/media"
+      ASSETS_DIR: "/app/assets"
     volumes:
       - ${MEDIA_PATH:-./data/media}:/data/media
+      - ${ASSETS_PATH:-./assets}:/app/assets:ro   # 离线 Data Dragon 数据包
     depends_on:
       mysql:
         condition: service_healthy

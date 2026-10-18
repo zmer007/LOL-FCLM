@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useUserStore } from '../stores/user'
 import {
   type AdminUser,
@@ -7,12 +7,11 @@ import {
   type ExportResult,
   type GameAsset,
   type Hero,
-  type SyncState,
   addUser,
   deleteUser,
   downloadExportFile,
   exportContents,
-  getSyncStatus,
+  getDDragonVersion,
   importContents,
   listAssets,
   listHeroes,
@@ -20,7 +19,6 @@ import {
   resetUserPassword,
   setUserRole,
   setUserStatus,
-  triggerSync,
 } from '../api/admin'
 import {
   approveContent,
@@ -77,10 +75,9 @@ const newPassword = ref('')
 const newRole = ref<'user' | 'admin'>('user')
 const currentUserId = ref<number>(0)
 
-// Data Dragon 同步状态
-const sync = ref<SyncState | null>(null)
+// Data Dragon 数据版本（离线部署）
+const ddragonVersion = ref('')
 const itemSubFilter = ref('全部')
-let pollTimer: ReturnType<typeof setInterval> | null = null
 
 onMounted(async () => {
   const u = await userStore.loadMe()
@@ -89,11 +86,12 @@ onMounted(async () => {
   checking.value = false
   if (isAdmin.value) {
     loadData()
-    refreshSync()
+    try {
+      const r = await getDDragonVersion()
+      ddragonVersion.value = r.version
+    } catch { /* 忽略 */ }
   }
 })
-
-onBeforeUnmount(() => stopPolling())
 
 async function loadData() {
   loading.value = true
@@ -177,6 +175,8 @@ async function doReject(c: Content) {
 // ---------- 批量导入 / 导出 ----------
 
 const importFileInput = ref<HTMLInputElement | null>(null)
+const importing = ref(false)
+const importProgress = ref(0)
 const exportDialogOpen = ref(false)
 const exportLoading = ref(false)
 const exportList = ref<Content[]>([])
@@ -286,16 +286,28 @@ function doImportClick() {
 
 async function onImportFileChange(e: Event) {
   const input = e.target as HTMLInputElement
-  const files = input.files
+  const fileArr = Array.from(input.files || [])
   input.value = ''
-  if (!files || files.length === 0) return
+  if (fileArr.length === 0) return
   errorMsg.value = ''
+  const hasManifest = fileArr.some((f) => f.name.toLowerCase() === 'manifest.json' || f.name.toLowerCase().endsWith('.json'))
+  if (!hasManifest) {
+    errorMsg.value = '请选择 manifest.json 文件（可同时选择 media-*.zip）'
+    return
+  }
+  importing.value = true
+  importProgress.value = 0
   try {
-    const res = await importContents(Array.from(files))
+    const res = await importContents(fileArr, (p) => {
+      importProgress.value = p
+    })
     errorMsg.value = `成功导入 ${res.imported} 条内容`
     await loadData()
   } catch (err) {
     errorMsg.value = '导入失败：' + (err as Error).message
+  } finally {
+    importing.value = false
+    importProgress.value = 0
   }
 }
 
@@ -310,59 +322,6 @@ const visibleAssets = () =>
   itemSubFilter.value === '全部'
     ? assets.value
     : assets.value.filter((a) => a.subCategory === itemSubFilter.value)
-
-// ---------- Data Dragon 同步 ----------
-
-async function refreshSync() {
-  try {
-    sync.value = await getSyncStatus()
-    if (sync.value.running) startPolling()
-  } catch {
-    // 状态拉取失败不打扰用户
-  }
-}
-
-function startPolling() {
-  if (pollTimer) return
-  pollTimer = setInterval(async () => {
-    try {
-      sync.value = await getSyncStatus()
-      if (!sync.value.running) {
-        stopPolling()
-        await loadData() // 同步结束后刷新当前网格
-      }
-    } catch {
-      stopPolling()
-    }
-  }, 2000)
-}
-
-function stopPolling() {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
-}
-
-async function startSync() {
-  errorMsg.value = ''
-  try {
-    sync.value = await triggerSync(false)
-    startPolling()
-  } catch (e) {
-    errorMsg.value = (e as Error).message
-  }
-}
-
-const progressText = () => {
-  if (!sync.value) return ''
-  const s = sync.value
-  if (s.running && s.stageTotal > 0) {
-    return `${s.stage} ${s.stageDone}/${s.stageTotal}`
-  }
-  if (s.running) return s.stage
-  return s.message
-}
 
 // ---------- 用户管理 ----------
 
@@ -475,12 +434,14 @@ async function removeUser(u: AdminUser) {
           >已拒绝</button>
           <span class="review-spacer"></span>
           <button class="btn small" @click="openExportDialog">导出</button>
-          <button class="btn small" @click="doImportClick">导入</button>
+          <button class="btn small" :disabled="importing" @click="doImportClick">
+            {{ importing ? `导入中 ${importProgress}%` : '导入' }}
+          </button>
           <input
             ref="importFileInput"
             type="file"
-            webkitdirectory
             multiple
+            accept=".json,.zip"
             style="display: none"
             @change="onImportFileChange"
           />
@@ -589,7 +550,7 @@ async function removeUser(u: AdminUser) {
             <!-- 导出结果 -->
             <div v-if="exportResult" class="export-result">
               <p class="export-tip">
-                导出完成，共 {{ exportResult.files.length }} 个文件。请全部下载到同一目录，导入时选择该目录即可。
+                导出完成，共 {{ exportResult.files.length }} 个文件。请全部下载，导入时同时选择 manifest.json 和 media-*.zip 即可。
               </p>
               <table class="utable export-files">
                 <thead>
@@ -743,19 +704,15 @@ async function removeUser(u: AdminUser) {
         </div>
       </section>
 
-      <!-- 数据面板（英雄 / 装备 / 召唤师技能 / 符文，均由 Data Dragon 同步） -->
+      <!-- 数据面板（英雄 / 装备 / 召唤师技能 / 符文，离线数据） -->
       <section v-if="activeTab !== 'review' && activeTab !== 'users' && activeTab !== 'messages'" class="panel">
         <div class="sync-bar">
           <div class="sync-info">
             <span class="sync-version">
-              数据版本：{{ sync?.version ? sync.version : '未同步' }}
+              数据版本：{{ ddragonVersion || '未加载' }}
             </span>
-            <span v-if="sync?.finishedAt" class="sync-time">最近更新：{{ sync.finishedAt }}</span>
-            <span v-if="sync" class="sync-msg" :class="'msg-' + sync.status">{{ progressText() }}</span>
+            <span class="sync-time">（离线部署，随版本发布更新）</span>
           </div>
-          <button class="btn" :disabled="sync?.running" @click="startSync">
-            {{ sync?.running ? '更新中…' : '更新数据' }}
-          </button>
         </div>
 
         <!-- 装备子分类筛选 -->
@@ -786,7 +743,7 @@ async function removeUser(u: AdminUser) {
             <div class="cell-name">{{ h.name }}</div>
             <div class="cell-sub">{{ h.title || '—' }}</div>
           </div>
-          <p v-if="heroes.length === 0" class="admin-tip full-row">尚未同步，点击右上角「更新数据」</p>
+          <p v-if="heroes.length === 0" class="admin-tip full-row">暂无数据</p>
         </div>
 
         <!-- 素材只读网格 -->
@@ -800,7 +757,7 @@ async function removeUser(u: AdminUser) {
             <div class="cell-sub">{{ a.subCategory || '—' }}</div>
           </div>
           <p v-if="visibleAssets().length === 0" class="admin-tip full-row">
-            {{ assets.length === 0 ? '尚未同步，点击右上角「更新数据」' : '该分类下暂无素材' }}
+            {{ assets.length === 0 ? '暂无数据' : '该分类下暂无素材' }}
           </p>
         </div>
       </section>
@@ -942,7 +899,7 @@ async function removeUser(u: AdminUser) {
   margin-bottom: 14px;
 }
 
-/* Data Dragon 同步条 */
+/* 数据版本条 */
 .sync-bar {
   display: flex;
   align-items: center;
@@ -956,8 +913,8 @@ async function removeUser(u: AdminUser) {
 }
 .sync-info {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: baseline;
+  gap: 12px;
   min-width: 0;
 }
 .sync-version {
@@ -967,19 +924,6 @@ async function removeUser(u: AdminUser) {
 .sync-time {
   font-size: 11.5px;
   color: var(--faint);
-}
-.sync-msg {
-  font-size: 12px;
-  color: var(--mute);
-}
-.sync-msg.msg-success {
-  color: var(--cyan);
-}
-.sync-msg.msg-skipped {
-  color: var(--faint);
-}
-.sync-msg.msg-failed {
-  color: var(--red);
 }
 
 .subfilters {

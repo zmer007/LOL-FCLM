@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"log"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -13,11 +14,19 @@ import (
 	"roadside-league/backend/internal/ddragon"
 	"roadside-league/backend/internal/handler"
 	"roadside-league/backend/internal/middleware"
+	"roadside-league/backend/internal/model"
 	"roadside-league/backend/internal/repository"
 	"roadside-league/backend/internal/response"
 	"roadside-league/backend/internal/service"
 	"roadside-league/backend/internal/storage"
 )
+
+func getenv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
 
 func main() {
 	cfg := config.Load()
@@ -54,7 +63,15 @@ func main() {
 	adminService := service.NewAdminService(heroRepo, assetRepo, store)
 	adminUserService := service.NewAdminUserService(userRepo)
 	contentService := service.NewContentService(contentRepo, heroRepo, userRepo, assetRepo, runeRepo, settingRepo, favoriteRepo, store)
-	syncService := service.NewSyncService(ddragon.New(), heroRepo, assetRepo, runeRepo, settingRepo, store)
+	// 本地 Data Dragon 数据包（离线部署，从 assets 目录读取）
+	assetsDir := getenv("ASSETS_DIR", "/app/assets")
+	localReader, err := ddragon.NewLocalReader(assetsDir)
+	if err != nil {
+		log.Fatalf("加载本地 Data Dragon 数据失败: %v", err)
+	}
+	log.Printf("Data Dragon 数据版本: %s", localReader.Version())
+
+	syncService := service.NewSyncService(localReader, heroRepo, assetRepo, runeRepo, settingRepo, store)
 	messageService := service.NewMessageService(messageRepo, userRepo, valkey)
 	favoriteService := service.NewFavoriteService(favoriteRepo, contentService)
 
@@ -65,7 +82,6 @@ func main() {
 	contentHandler := handler.NewContentHandler(contentService)
 	adminHandler := handler.NewAdminHandler(adminService)
 	adminUserHandler := handler.NewAdminUserHandler(adminUserService)
-	syncHandler := handler.NewSyncHandler(syncService)
 	messageHandler := handler.NewMessageHandler(messageService)
 	favoriteHandler := handler.NewFavoriteHandler(favoriteService)
 
@@ -74,8 +90,12 @@ func main() {
 		log.Printf("WARN ensure admin failed: %v", err)
 	}
 
-	// 启动时异步回填英雄元数据：别名（内置表）+ 官方定位（Data Dragon tags）
-	syncService.BackfillMeta()
+	// 启动时从本地 assets 离线同步 Data Dragon 数据到数据库与媒体目录
+	if err := syncService.Run(); err != nil {
+		log.Printf("WARN Data Dragon 离线同步失败: %v", err)
+	} else {
+		log.Printf("Data Dragon 离线同步完成: %s", syncService.State().Message)
+	}
 
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
@@ -87,6 +107,12 @@ func main() {
 	{
 		api.GET("/health", func(c *gin.Context) {
 			response.OK(c, gin.H{"service": "lol-api", "status": "up"})
+		})
+
+		// 公开：当前 Data Dragon 数据版本（离线部署）
+		api.GET("/ddragon-version", func(c *gin.Context) {
+			v, _ := settingRepo.Get(model.SettingDDragonVersion)
+			response.OK(c, gin.H{"version": v})
 		})
 
 		// 公开：注册 / 登录 / 发送邮箱验证码
@@ -160,10 +186,6 @@ func main() {
 			admin.PATCH("/users/:id/role", adminUserHandler.SetRole)
 			admin.POST("/users/:id/password", adminUserHandler.ResetPassword)
 			admin.DELETE("/users/:id", adminUserHandler.Delete)
-
-			// Data Dragon 数据同步（英雄/装备/召唤师技能/符文图标）
-			admin.POST("/sync/ddragon", syncHandler.Trigger)
-			admin.GET("/sync/status", syncHandler.Status)
 		}
 	}
 

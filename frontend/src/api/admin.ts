@@ -1,5 +1,10 @@
 import { http } from './http'
 
+// 获取当前离线部署的 Data Dragon 数据版本
+export function getDDragonVersion() {
+  return http<{ version: string }>({ method: 'GET', url: '/ddragon-version' })
+}
+
 export interface Hero {
   id: number
   name: string
@@ -130,32 +135,6 @@ export function deleteUser(id: number) {
   return http<{ ok: boolean }>({ method: 'DELETE', url: `/admin/users/${id}` })
 }
 
-// ---------- Data Dragon 同步 ----------
-
-export interface SyncState {
-  running: boolean
-  status: 'idle' | 'running' | 'success' | 'skipped' | 'failed'
-  version: string
-  stage: string
-  total: number
-  done: number
-  stageTotal: number
-  stageDone: number
-  failed: number
-  downloaded: number
-  message: string
-  startedAt?: string
-  finishedAt?: string
-}
-
-export function triggerSync(force = false) {
-  return http<SyncState>({ method: 'POST', url: '/admin/sync/ddragon', data: { force } })
-}
-
-export function getSyncStatus() {
-  return http<SyncState>({ method: 'GET', url: '/admin/sync/status' })
-}
-
 // ---------- 内容批量导入 / 导出 ----------
 
 export interface ExportFileInfo {
@@ -187,7 +166,7 @@ export function downloadExportFile(dir: string, file: string) {
 }
 
 // importContents 上传 manifest.json + media-*.zip（多文件）批量恢复内容与媒体。
-export function importContents(files: File[]) {
+export function importContents(files: File[], onProgress?: (pct: number) => void) {
   const form = new FormData()
   for (const f of files) {
     form.append('files', f)
@@ -196,5 +175,11 @@ export function importContents(files: File[]) {
     method: 'POST',
     url: '/admin/contents/import',
     data: form,
+    timeout: 0,
+    onUploadProgress: (e) => {
+      if (onProgress && e.total) {
+        onProgress(Math.round((e.loaded / e.total) * 100))
+      }
+    },
   })
 }
