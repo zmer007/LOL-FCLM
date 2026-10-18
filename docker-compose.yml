@@ -9,7 +9,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - lol_media:/data/media:ro   # Nginx 直读用户上传文件（/media/）
+      - ${MEDIA_PATH:-./data/media}:/data/media:ro   # Nginx 直读用户上传文件（/media/）
     depends_on:
       - api
     networks:
@@ -31,7 +31,7 @@ services:
       VALKEY_ADDR: "valkey:6379"
       MEDIA_ROOT: "/data/media"
     volumes:
-      - lol_media:/data/media
+      - ${MEDIA_PATH:-./data/media}:/data/media
     depends_on:
       mysql:
         condition: service_healthy
@@ -57,7 +57,7 @@ services:
       VALKEY_ADDR: "valkey:6379"
       MEDIA_ROOT: "/data/media"
     volumes:
-      - lol_media:/data/media
+      - ${MEDIA_PATH:-./data/media}:/data/media
     depends_on:
       mysql:
         condition: service_healthy
@@ -80,7 +80,7 @@ services:
       MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
       TZ: "Asia/Shanghai"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - ${MYSQL_PATH:-./data/mysql}:/var/lib/mysql
     networks:
       - lol-net
     healthcheck:
@@ -95,7 +95,7 @@ services:
     image: valkey/valkey:8-alpine
     command: ["valkey-server", "--save", "60", "1", "--appendonly", "yes"]
     volumes:
-      - valkey_data:/data
+      - ${VALKEY_PATH:-./data/valkey}:/data
     networks:
       - lol-net
     restart: unless-stopped
@@ -104,7 +104,3 @@ networks:
   lol-net:
     driver: bridge
 
-volumes:
-  lol_media:
-  mysql_data:
-  valkey_data:

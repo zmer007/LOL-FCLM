@@ -9,3 +9,6 @@ backend/tmp/
 # Node / Vite
 frontend/node_modules/
 frontend/dist/
+
+# Docker 数据卷（bind mount 目录，各服务器本地存储）
+/data/
