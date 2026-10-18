@@ -63,7 +63,7 @@ function enterHero(h: Hero) {
         <!-- 微笑 -->
         <path d="M16 30 Q24 38 32 30" stroke="#C8AA6E" stroke-width="2.8" stroke-linecap="round" />
       </svg>
-      <span class="logo-right"><i>联盟</i></span>
+      <span class="logo-right"><i>英雄</i></span>
     </div>
 
     <form class="search" @submit.prevent="onSearch">

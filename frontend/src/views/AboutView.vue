@@ -1,6 +1,6 @@
 <template>
   <main class="about">
-    <h1>关于路边联盟</h1>
+    <h1>关于路边英雄</h1>
     <p>骨架占位页，后续迁入 design/关于页面.html 的内容。</p>
   </main>
 </template>
