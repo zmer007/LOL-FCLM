@@ -6,6 +6,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -136,6 +137,8 @@ func main() {
 
 	// 上传文件静态访问（生产经 Nginx 直挂卷；本地 go run 开发时由 Go 提供）
 	r.Static("/media", cfg.MediaRoot)
+	// Data Dragon 官方图标直接从 assets 提供（不复制到 media，部署即生效）
+	r.Static("/ddragon", filepath.Join(assetsDir, localReader.Meta().DirName, "img"))
 
 	api := r.Group("/api")
 	{

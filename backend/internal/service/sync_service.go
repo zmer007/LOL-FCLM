@@ -2,7 +2,6 @@ package service
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"strconv"
 	"strings"
@@ -123,7 +122,7 @@ func (s *SyncService) Run() error {
 	for _, ch := range champs.Data {
 		heroJobs = append(heroJobs, iconJob{
 			dir: "heroes", file: ch.Image.Full,
-			rel: "champion/" + ch.Image.Full,
+			url: "/ddragon/champion/" + ch.Image.Full,
 			apply: func(url string) error {
 				return s.heroes.UpsertDDragon(&model.Hero{
 					Name: ch.Name, Title: ch.Title, Lane: "",
@@ -147,7 +146,7 @@ func (s *SyncService) Run() error {
 		sub := itemSubCategory(item.Tags)
 		itemJobs = append(itemJobs, iconJob{
 			dir: "items", file: file,
-			rel: "item/" + file,
+			url: "/ddragon/item/" + file,
 			apply: func(url string) error {
 				return s.assets.UpsertDDragon(&model.GameAsset{
 					Category: model.AssetCategoryItem, SubCategory: sub,
@@ -166,7 +165,7 @@ func (s *SyncService) Run() error {
 		}
 		spellJobs = append(spellJobs, iconJob{
 			dir: "spells", file: sp.Image.Full,
-			rel: "spell/" + sp.Image.Full,
+			url: "/ddragon/spell/" + sp.Image.Full,
 			apply: func(url string) error {
 				return s.assets.UpsertDDragon(&model.GameAsset{
 					Category: model.AssetCategorySkill, SubCategory: "召唤师技能",
@@ -185,8 +184,8 @@ func (s *SyncService) Run() error {
 		treeSort := ddragon.TreeSort(treeID)
 		treeFile := strconv.Itoa(tree.ID) + ".png"
 		runeJobs = append(runeJobs, iconJob{
-			dir: "runes", file: treeFile, global: true,
-			rel: treeIcon,
+			dir: "runes", file: treeFile,
+			url: "/ddragon/" + treeIcon,
 			apply: func(url string) error {
 				if err := s.assets.UpsertDDragon(&model.GameAsset{
 					Category: model.AssetCategoryRune, SubCategory: treeName,
@@ -208,8 +207,8 @@ func (s *SyncService) Run() error {
 				runeSort := runeIdx
 				runeFile := strconv.Itoa(rune_.ID) + ".png"
 				runeJobs = append(runeJobs, iconJob{
-					dir: "runes", file: runeFile, global: true,
-					rel: runeIcon,
+					dir: "runes", file: runeFile,
+					url: "/ddragon/" + runeIcon,
 					apply: func(url string) error {
 						if err := s.assets.UpsertDDragon(&model.GameAsset{
 							Category: model.AssetCategoryRune, SubCategory: treeName,
@@ -233,7 +232,8 @@ func (s *SyncService) Run() error {
 	for _, f := range ddragon.ShardFiles() {
 		file := f + ".png"
 		shardJobs = append(shardJobs, iconJob{
-			dir: "shards", file: file, cdragon: true, rel: f,
+			dir: "shards", file: file,
+			url:   "/ddragon/statmods/" + file,
 			apply: func(string) error { return nil },
 		})
 	}
@@ -293,12 +293,10 @@ func (s *SyncService) tick(copied bool, failed bool) {
 // ---------- 并发执行 ----------
 
 type iconJob struct {
-	dir     string
-	file    string
-	rel     string // assets 中的相对路径
-	global  bool   // 符文图标为全局路径
-	cdragon bool   // 属性碎片
-	apply   func(localURL string) error
+	dir   string
+	file  string
+	url   string // 直接指向 assets 的对外 URL（/ddragon/...），无需复制到 media
+	apply func(url string) error
 }
 
 func (s *SyncService) runJobs(stage string, jobs []iconJob) int {
@@ -314,46 +312,13 @@ func (s *SyncService) runJobs(stage string, jobs []iconJob) int {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			localURL := s.store.IconURL(job.dir, job.file)
-			copied := false
 			failed := false
-
-			// 从 assets 复制图标到媒体目录（若不存在）
-			if !s.store.IconExists(job.dir, job.file) {
-				var src io.ReadCloser
-				var err error
-				switch {
-				case job.cdragon:
-					src, err = s.local.OpenShardIcon(job.rel)
-				case job.global:
-					src, err = s.local.OpenIconGlobal(job.rel)
-				default:
-					src, err = s.local.OpenIcon(job.rel)
-				}
-				if err == nil {
-					url, wrote, saveErr := s.store.SaveIconFile(job.dir, job.file, src)
-					src.Close()
-					if saveErr == nil {
-						localURL, copied = url, wrote
-					} else {
-						err = saveErr
-					}
-				}
-				if err != nil {
-					log.Printf("sync icon failed [%s/%s] %s: %v", job.dir, job.file, job.rel, err)
-					failed = true
-					failCount++
-				}
+			if err := job.apply(job.url); err != nil {
+				log.Printf("sync upsert failed [%s/%s]: %v", job.dir, job.file, err)
+				failed = true
+				failCount++
 			}
-
-			if !failed {
-				if err := job.apply(localURL); err != nil {
-					log.Printf("sync upsert failed [%s/%s]: %v", job.dir, job.file, err)
-					failed = true
-					failCount++
-				}
-			}
-			s.tick(copied, failed)
+			s.tick(false, failed)
 		}()
 	}
 	wg.Wait()
