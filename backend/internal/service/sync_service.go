@@ -233,7 +233,7 @@ func (s *SyncService) Run() error {
 		file := f + ".png"
 		shardJobs = append(shardJobs, iconJob{
 			dir: "shards", file: file,
-			url:   "/ddragon/statmods/" + file,
+			url:   ddragon.ShardIconURL(file),
 			apply: func(string) error { return nil },
 		})
 	}

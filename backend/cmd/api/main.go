@@ -113,7 +113,7 @@ func main() {
 	authHandler := handler.NewAuthHandler(authService)
 	heroHandler := handler.NewHeroHandler(heroRepo)
 	assetHandler := handler.NewAssetHandler(assetRepo)
-	runeHandler := handler.NewRuneHandler(runeRepo, store)
+	runeHandler := handler.NewRuneHandler(runeRepo)
 	contentHandler := handler.NewContentHandler(contentService)
 	adminHandler := handler.NewAdminHandler(adminService)
 	adminUserHandler := handler.NewAdminUserHandler(adminUserService)

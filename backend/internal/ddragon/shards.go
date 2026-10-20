@@ -47,3 +47,8 @@ func ShardFiles() []string {
 	}
 	return out
 }
+
+// ShardIconURL 返回属性碎片图标的对外 URL，直接从 assets 目录经 /ddragon 静态路由提供。
+func ShardIconURL(file string) string {
+	return "/ddragon/statmods/" + file
+}

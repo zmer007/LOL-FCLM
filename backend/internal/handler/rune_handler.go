@@ -6,17 +6,15 @@ import (
 	"roadside-league/backend/internal/ddragon"
 	"roadside-league/backend/internal/repository"
 	"roadside-league/backend/internal/response"
-	"roadside-league/backend/internal/storage"
 )
 
 // RuneHandler 提供公开的结构化符文树与属性碎片接口。
 type RuneHandler struct {
 	runes *repository.RuneRepository
-	store *storage.LocalStore
 }
 
-func NewRuneHandler(runes *repository.RuneRepository, store *storage.LocalStore) *RuneHandler {
-	return &RuneHandler{runes: runes, store: store}
+func NewRuneHandler(runes *repository.RuneRepository) *RuneHandler {
+	return &RuneHandler{runes: runes}
 }
 
 type shardVO struct {
@@ -38,7 +36,7 @@ func (h *RuneHandler) Trees(c *gin.Context) {
 		for col, d := range ddragon.ShardGrid[row] {
 			shards[row][col] = shardVO{
 				Name: d.Name,
-				Icon: h.store.IconURL("shards", d.File+".png"),
+				Icon: ddragon.ShardIconURL(d.File + ".png"),
 			}
 		}
 	}
