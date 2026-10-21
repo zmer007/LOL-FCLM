@@ -7,30 +7,24 @@ const router = useRouter()
 const keyword = ref('')
 const heroes = ref<Hero[]>([])
 
-// 官方定位筛选项（顺序与 Data Dragon 六大定位一致），'' 表示全部
-const ROLE_FILTERS = ['', '战士', '坦克', '刺客', '法师', '射手', '辅助'] as const
-const activeRole = ref<(typeof ROLE_FILTERS)[number]>('')
-
 onMounted(async () => {
   try {
     heroes.value = (await listHeroes()).list
   } catch {
-    // 头像墙加载失败不影响搜索
+    // 英雄列表加载失败不影响搜索
   }
 })
 
-// 关键字（短名/称号/别名）+ 官方定位双重过滤
+// 关键字过滤（短名/称号/别名）；默认无输入时不展示任何英雄
 const filteredHeroes = computed(() => {
   const q = keyword.value.trim().toLowerCase()
-  return heroes.value.filter((h) => {
-    if (activeRole.value && !h.roles.includes(activeRole.value)) return false
-    if (!q) return true
-    return (
+  if (!q) return []
+  return heroes.value.filter(
+    (h) =>
       h.title.toLowerCase().includes(q) ||
       h.name.toLowerCase().includes(q) ||
-      h.aliases.some((a) => a.toLowerCase().includes(q))
-    )
-  })
+      h.aliases.some((a) => a.toLowerCase().includes(q)),
+  )
 })
 
 function onSearch() {
@@ -43,7 +37,7 @@ function onSearch() {
   })
 }
 
-// 点击头像进入该英雄的对线页；优先用短名（阿狸），其次全名
+// 点击英雄名进入该英雄的对线页；优先用短名（阿狸），其次全名
 function enterHero(h: Hero) {
   router.push({ path: '/matchup', query: { champion: h.title || h.name } })
 }
@@ -91,22 +85,8 @@ async function copyText(text: string, key: string) {
       <input v-model="keyword" type="text" placeholder="输入英雄名称" autofocus />
     </form>
 
-    <!-- 官方定位筛选：默认全部，点选后与关键字叠加过滤 -->
-    <div class="role-bar">
-      <button
-        v-for="r in ROLE_FILTERS"
-        :key="r"
-        type="button"
-        class="role-chip"
-        :class="{ active: activeRole === r }"
-        @click="activeRole = r"
-      >
-        {{ r || '全部' }}
-      </button>
-    </div>
-
-    <!-- 英雄头像墙：随输入/定位实时过滤，固定两排高度，其余滚动查看 -->
-    <div v-if="filteredHeroes.length" class="hero-wall">
+    <!-- 英雄结果区：固定预留两排空间避免页面跳动，默认无匹配时为空；纯文字展示，头像加载慢不用 -->
+    <div class="hero-wall">
       <button
         v-for="h in filteredHeroes"
         :key="h.id"
@@ -115,9 +95,7 @@ async function copyText(text: string, key: string) {
         :title="h.name"
         @click="enterHero(h)"
       >
-        <span class="hero-avatar">
-          <img v-if="h.avatar" :src="h.avatar" :alt="h.title || h.name" loading="lazy" />
-        </span>
+        <span class="hero-name">{{ h.title || h.name }}</span>
       </button>
     </div>
 
@@ -232,37 +210,7 @@ async function copyText(text: string, key: string) {
   color: var(--faint);
 }
 
-/* 官方定位筛选条 */
-.role-bar {
-  margin-top: 22px;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-}
-.role-chip {
-  font-family: inherit;
-  font-size: 13.5px;
-  color: var(--mute);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 6px 18px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.role-chip:hover {
-  color: var(--gold-bright);
-  border-color: var(--gold);
-}
-.role-chip.active {
-  color: #0a1428;
-  background: var(--gold);
-  border-color: var(--gold);
-  font-weight: 700;
-}
-
-/* 英雄头像墙：每行 11 个（原 13 个减 2），固定两排高度（56*2 + 间距 16），其余滚动 */
+/* 英雄名称墙：固定两排高度预留空间（默认空也占位，避免输入时页面跳动），超出滚动 */
 .hero-wall {
   width: 100%;
   max-width: 708px;
@@ -272,7 +220,7 @@ async function copyText(text: string, key: string) {
   grid-auto-rows: min-content;
   justify-content: space-between;
   gap: 16px 8px;
-  max-height: 140px;
+  height: 140px;
   overflow-y: auto;
   padding: 4px 10px 8px 2px;
   scrollbar-width: thin;
@@ -292,25 +240,30 @@ async function copyText(text: string, key: string) {
   padding: 0;
   cursor: pointer;
   width: 56px;
-}
-.hero-avatar {
-  display: block;
-  width: 56px;
   height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 10px;
   border: 1px solid var(--line);
   background: linear-gradient(135deg, #1c3350, #132438);
-  overflow: hidden;
   transition: border-color 0.15s, transform 0.15s;
 }
-.hero-cell:hover .hero-avatar {
+.hero-cell:hover {
   border-color: var(--gold);
   transform: translateY(-2px);
 }
-.hero-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+/* 名称文字：居中显示，过长自动换行 */
+.hero-name {
+  padding: 0 2px;
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--mute);
+  transition: color 0.15s;
+}
+.hero-cell:hover .hero-name {
+  color: var(--gold-bright);
 }
 
 /* 站点联系方式：头像墙下方朴素纯文本 */
