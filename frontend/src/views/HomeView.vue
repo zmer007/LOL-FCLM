@@ -85,7 +85,7 @@ function enterHero(h: Hero) {
       </button>
     </div>
 
-    <!-- 英雄头像墙：随输入/定位实时过滤，固定三排高度，其余滚动查看 -->
+    <!-- 英雄头像墙：随输入/定位实时过滤，固定两排高度，其余滚动查看 -->
     <div v-if="filteredHeroes.length" class="hero-wall">
       <button
         v-for="h in filteredHeroes"
@@ -99,6 +99,12 @@ function enterHero(h: Hero) {
           <img v-if="h.avatar" :src="h.avatar" :alt="h.title || h.name" loading="lazy" />
         </span>
       </button>
+    </div>
+
+    <!-- 站点交流联系方式 -->
+    <div class="contact">
+      <p>站点 QQ 交流群：962481115</p>
+      <p>抖音花田错，QQ群：657601118</p>
     </div>
   </main>
 </template>
@@ -203,17 +209,17 @@ function enterHero(h: Hero) {
   font-weight: 700;
 }
 
-/* 英雄头像墙：三排固定高度（56*3 + 间距 16*2），纵向滚动 */
+/* 英雄头像墙：每行 11 个（原 13 个减 2），固定两排高度（56*2 + 间距 16），其余滚动 */
 .hero-wall {
   width: 100%;
-  max-width: 860px;
+  max-width: 708px;
   margin-top: 26px;
   display: grid;
   grid-template-columns: repeat(auto-fill, 56px);
   grid-auto-rows: min-content;
   justify-content: space-between;
   gap: 16px 8px;
-  max-height: 208px;
+  max-height: 140px;
   overflow-y: auto;
   padding: 4px 10px 8px 2px;
   scrollbar-width: thin;
@@ -252,5 +258,16 @@ function enterHero(h: Hero) {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* 站点联系方式：头像墙下方朴素纯文本 */
+.contact {
+  margin-top: 18px;
+  text-align: center;
+}
+.contact p {
+  margin: 4px 0;
+  font-size: 13px;
+  color: var(--mute);
 }
 </style>
