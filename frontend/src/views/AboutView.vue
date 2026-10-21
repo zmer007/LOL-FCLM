@@ -1,46 +1,18 @@
 <template>
   <main class="about">
     <section class="hero">
-      <h1>关于路边英雄</h1>
-      <p class="tagline">英雄联盟对线技巧学习与分享平台</p>
+      <h1>关于路边小站</h1>
+      <p class="tagline">个人向的英雄联盟对线技巧学习站点</p>
     </section>
 
     <section class="section">
-      <div class="section-title">平台简介</div>
+      <div class="section-title">站点简介</div>
       <p>
-        路边英雄是一个聚焦英雄联盟对线技巧的学习与分享平台。你可以在首页搜索英雄，查看该英雄的推荐出装、符文与对线视频；
-        也可以浏览全英雄资料，查看装备与符文图鉴，或在个人中心管理收藏与投稿。
+        路边小站是个人使用的英雄联盟对线技巧网站。
       </p>
       <p>
-        平台鼓励召唤师分享自己的对线理解与出装思路，所有投稿内容经审核后公开展示，帮助更多玩家提升对线水平。
+        站点内容由站长个人整理与维护，用于记录自己的对线理解与出装思路，也方便随时查阅回顾。
       </p>
-    </section>
-
-    <section class="section">
-      <div class="section-title">核心功能</div>
-      <ul class="feature-list">
-        <li>
-          <span class="feat-icon">🔍</span>
-          <div>
-            <div class="feat-name">英雄搜索</div>
-            <div class="feat-desc">快速查找英雄，查看对线出装、符文与视频攻略</div>
-          </div>
-        </li>
-        <li>
-          <span class="feat-icon">⚔️</span>
-          <div>
-            <div class="feat-name">装备符文图鉴</div>
-            <div class="feat-desc">浏览全装备、召唤师技能与符文，数据同步自官方 Data Dragon</div>
-          </div>
-        </li>
-        <li>
-          <span class="feat-icon">⭐</span>
-          <div>
-            <div class="feat-name">收藏管理</div>
-            <div class="feat-desc">收藏喜欢的内容，在个人中心随时回顾</div>
-          </div>
-        </li>
-      </ul>
     </section>
 
     <section class="section">
@@ -109,33 +81,6 @@
 }
 .section p + p {
   margin-top: 12px;
-}
-
-.feature-list {
-  list-style: none;
-  display: grid;
-  gap: 18px;
-}
-.feature-list li {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-}
-.feat-icon {
-  font-size: 22px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-.feat-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--gold-bright);
-}
-.feat-desc {
-  margin-top: 4px;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--mute);
 }
 
 .kv {

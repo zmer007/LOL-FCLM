@@ -49,9 +49,9 @@ func (m *MailService) SendVerificationCode(to, code string) error {
 		return ErrMailNotConfigured
 	}
 
-	subject := "【路边英雄】注册验证码"
+	subject := "【路边小站】注册验证码"
 	body := fmt.Sprintf(
-		"您的注册验证码是：<b>%s</b><br><br>验证码 10 分钟内有效，请勿泄露给他人。<br><br>—— 路边英雄",
+		"您的注册验证码是：<b>%s</b><br><br>验证码 10 分钟内有效，请勿泄露给他人。<br><br>—— 路边小站",
 		code,
 	)
 	msg := fmt.Sprintf(

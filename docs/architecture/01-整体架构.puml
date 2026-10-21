@@ -1,5 +1,5 @@
 @startuml 整体架构
-title 路边英雄 - 整体架构图（容器级前后端分离）
+title 路边小站 - 整体架构图（容器级前后端分离）
 skinparam componentStyle rectangle
 skinparam shadowing false
 skinparam defaultFontName "PingFang SC"

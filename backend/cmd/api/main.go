@@ -1,4 +1,4 @@
-// api 是路边英雄的后端 HTTP 服务（Go + Gin）。
+// api 是路边小站的后端 HTTP 服务（Go + Gin）。
 package main
 
 import (
