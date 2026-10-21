@@ -47,6 +47,26 @@ function onSearch() {
 function enterHero(h: Hero) {
   router.push({ path: '/matchup', query: { champion: h.title || h.name } })
 }
+
+// 复制 QQ 群号，成功后短暂显示「已复制」
+const copied = ref('')
+async function copyText(text: string, key: string) {
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    // 剪贴板 API 不可用时降级为临时 textarea 复制
+    const ta = document.createElement('textarea')
+    ta.value = text
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  }
+  copied.value = key
+  setTimeout(() => {
+    if (copied.value === key) copied.value = ''
+  }, 1500)
+}
 </script>
 
 <template>
@@ -103,8 +123,41 @@ function enterHero(h: Hero) {
 
     <!-- 站点交流联系方式 -->
     <div class="contact">
-      <p>站点 QQ 交流群：962481115</p>
-      <p>抖音花田错，QQ群：657601118</p>
+      <p>
+        站点 QQ 交流群：962481115
+        <button
+          type="button"
+          class="copy-btn"
+          :title="copied === 'site' ? '已复制' : '复制'"
+          @click="copyText('962481115', 'site')"
+        >
+          <!-- 复制成功时切换为对勾图标 -->
+          <svg v-if="copied === 'site'" viewBox="0 0 16 16" class="copy-icon">
+            <path d="M3 8.5 L6.5 12 L13 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <svg v-else viewBox="0 0 16 16" class="copy-icon">
+            <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6" />
+            <path d="M10.5 3.5 H3.5 A1.5 1.5 0 0 0 2 5 V11.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          </svg>
+        </button>
+      </p>
+      <p>
+        抖音花田错，QQ群：657601118
+        <button
+          type="button"
+          class="copy-btn"
+          :title="copied === 'douyin' ? '已复制' : '复制'"
+          @click="copyText('657601118', 'douyin')"
+        >
+          <svg v-if="copied === 'douyin'" viewBox="0 0 16 16" class="copy-icon">
+            <path d="M3 8.5 L6.5 12 L13 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <svg v-else viewBox="0 0 16 16" class="copy-icon">
+            <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6" />
+            <path d="M10.5 3.5 H3.5 A1.5 1.5 0 0 0 2 5 V11.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          </svg>
+        </button>
+      </p>
     </div>
   </main>
 </template>
@@ -269,5 +322,29 @@ function enterHero(h: Hero) {
   margin: 4px 0;
   font-size: 13px;
   color: var(--mute);
+}
+/* 复制按钮：与文本同排的极小图标按钮 */
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: -2px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin-left: 6px;
+  color: var(--faint);
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.copy-btn:hover {
+  color: var(--gold-bright);
+}
+.copy-icon {
+  width: 13px;
+  height: 13px;
 }
 </style>
