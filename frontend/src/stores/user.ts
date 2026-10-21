@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { fetchMe, login as apiLogin, register as apiRegister, sendCode as apiSendCode, type UserVO } from '../api/auth'
+import { fetchMe, login as apiLogin, type UserVO } from '../api/auth'
 import { TOKEN_KEY } from '../api/http'
 
 export const useUserStore = defineStore('user', () => {
@@ -16,15 +16,6 @@ export const useUserStore = defineStore('user', () => {
   async function login(account: string, password: string) {
     const data = await apiLogin(account, password)
     setSession(data.token, data.user)
-  }
-
-  async function register(username: string, email: string, password: string, code: string) {
-    const data = await apiRegister(username, email, password, code)
-    setSession(data.token, data.user)
-  }
-
-  async function sendCode(email: string) {
-    return apiSendCode(email)
   }
 
   async function loadMe(): Promise<UserVO | null> {
@@ -46,5 +37,5 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem(TOKEN_KEY)
   }
 
-  return { token, user, login, register, sendCode, loadMe, logout, setSession }
+  return { token, user, login, loadMe, logout, setSession }
 })

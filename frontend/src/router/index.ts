@@ -17,13 +17,6 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: () => import('../views/AuthView.vue'),
-      props: { mode: 'login' },
-    },
-    {
-      path: '/register',
-      name: 'register',
-      component: () => import('../views/AuthView.vue'),
-      props: { mode: 'register' },
     },
     {
       path: '/me',

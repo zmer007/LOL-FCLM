@@ -14,22 +14,6 @@ export interface AuthData {
   user: UserVO
 }
 
-export function sendCode(email: string) {
-  return http<{ msg: string }>({
-    method: 'POST',
-    url: '/auth/send-code',
-    data: { email },
-  })
-}
-
-export function register(username: string, email: string, password: string, code: string) {
-  return http<AuthData>({
-    method: 'POST',
-    url: '/auth/register',
-    data: { username, email, password, code },
-  })
-}
-
 export function login(account: string, password: string) {
   return http<AuthData>({
     method: 'POST',

@@ -51,7 +51,11 @@ func (s *AdminUserService) Add(username, password, role string) (*model.User, er
 	}
 	if err := s.users.Create(u); err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return nil, ErrUsernameTaken
+			// 唯一冲突只可能是用户名（email 已无唯一索引）；二次确认后给出准确提示
+			if _, e := s.users.FindByUsername(username); e == nil {
+				return nil, ErrUsernameTaken
+			}
+			return nil, err
 		}
 		return nil, err
 	}

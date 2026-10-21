@@ -92,8 +92,7 @@ func main() {
 	settingRepo := repository.NewSettingRepository(db)
 	favoriteRepo := repository.NewFavoriteRepository(db)
 
-	mailSvc := service.NewMailService(cfg)
-	authService := service.NewAuthService(userRepo, valkey, mailSvc, cfg.JWTSecret, cfg.JWTExpireHours, cfg.CodeTTLSeconds, cfg.CodeResendSeconds)
+	authService := service.NewAuthService(userRepo, valkey, cfg.JWTSecret, cfg.JWTExpireHours)
 	adminService := service.NewAdminService(heroRepo, assetRepo, store)
 	adminUserService := service.NewAdminUserService(userRepo)
 	contentService := service.NewContentService(contentRepo, heroRepo, userRepo, assetRepo, runeRepo, settingRepo, favoriteRepo, store)
@@ -149,9 +148,7 @@ func main() {
 			response.OK(c, gin.H{"version": v})
 		})
 
-		// 公开：注册 / 登录 / 发送邮箱验证码
-		api.POST("/auth/send-code", authHandler.SendCode)
-		api.POST("/auth/register", authHandler.Register)
+		// 公开：登录（注册采用邀请制，由管理员在后台创建账号）
 		api.POST("/auth/login", authHandler.Login)
 
 		// 公开：英雄只读数据（首页头像墙、英雄列表）

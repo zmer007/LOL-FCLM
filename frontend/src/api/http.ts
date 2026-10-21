@@ -32,7 +32,7 @@ instance.interceptors.response.use(
     if (status === 401) {
       localStorage.removeItem(TOKEN_KEY)
       const path = window.location.pathname
-      if (path !== '/login' && path !== '/register') {
+      if (path !== '/login') {
         const redirect = encodeURIComponent(path + window.location.search)
         window.location.href = `/login?redirect=${redirect}`
         return new Promise(() => {}) // 中断后续处理，等待页面跳转
