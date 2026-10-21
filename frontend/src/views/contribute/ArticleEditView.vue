@@ -17,7 +17,7 @@
     <template v-else>
       <div class="page-head">
         <h1>{{ editId ? '编辑图文' : '发布图文' }}</h1>
-        <p class="sub">投稿至 <em>{{ heroTitle }}</em> 的对线页</p>
+        <p class="sub">整理到 <em>{{ heroTitle }}</em> 的对线页</p>
       </div>
 
       <!-- 标题 -->

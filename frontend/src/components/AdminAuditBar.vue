@@ -51,7 +51,7 @@ async function onApprove() {
 }
 
 async function onReject() {
-  const reason = window.prompt('请填写拒绝理由（将通知投稿者）：', props.rejectReason || '')
+  const reason = window.prompt('请填写拒绝理由（将通知作者）：', props.rejectReason || '')
   if (reason === null) return
   if (!reason.trim()) {
     error.value = '拒绝理由不能为空'

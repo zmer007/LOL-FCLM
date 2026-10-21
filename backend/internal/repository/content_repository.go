@@ -67,7 +67,7 @@ func (r *ContentRepository) ListPublic(heroID, opponentHeroID int64, kind string
 	return &ContentPage{List: list, Total: total}, nil
 }
 
-// ListByAuthor 我的投稿；status 为空时返回全部状态。
+// ListByAuthor 我的整理；status 为空时返回全部状态。
 func (r *ContentRepository) ListByAuthor(authorID int64, status string) ([]model.Content, error) {
 	q := r.db.Where("author_id = ?", authorID)
 	if status != "" {

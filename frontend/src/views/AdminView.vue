@@ -28,7 +28,6 @@ import {
 } from '../api/content'
 import { getAssetMap } from '../api/asset'
 import { getRuneTrees, type RuneTree, type Shard } from '../api/build'
-import { listAdminMessages, type Message } from '../api/message'
 import ItemSlots from '../components/build/ItemSlots.vue'
 import RunePage from '../components/build/RunePage.vue'
 
@@ -36,11 +35,10 @@ const userStore = useUserStore()
 const isAdmin = ref(false)
 const checking = ref(true)
 
-type TabKey = 'review' | 'users' | 'messages' | 'hero' | AssetCategory
+type TabKey = 'review' | 'users' | 'hero' | AssetCategory
 const tabs: { key: TabKey; label: string }[] = [
   { key: 'review', label: '内容审批' },
   { key: 'users', label: '用户管理' },
-  { key: 'messages', label: '用户留言' },
   { key: 'hero', label: '英雄头像' },
   { key: 'item', label: '装备图标' },
   { key: 'skill', label: '召唤师技能' },
@@ -65,7 +63,6 @@ const ITEM_SUBS = ['攻击', '法术', '防御', '移动', '消耗', '其他']
 const heroes = ref<Hero[]>([])
 const assets = ref<GameAsset[]>([])
 const users = ref<AdminUser[]>([])
-const messages = ref<Message[]>([])
 const loading = ref(false)
 const errorMsg = ref('')
 
@@ -103,8 +100,6 @@ async function loadData() {
       heroes.value = (await listHeroes()).list
     } else if (activeTab.value === 'users') {
       users.value = (await listUsers()).list
-    } else if (activeTab.value === 'messages') {
-      messages.value = (await listAdminMessages()).list
     } else {
       assets.value = (await listAssets(activeTab.value as AssetCategory)).list
     }
@@ -156,7 +151,7 @@ async function doApprove(c: Content) {
 }
 
 async function doReject(c: Content) {
-  const reason = window.prompt('请填写拒绝理由（将通知投稿者）：', c.rejectReason || '')
+  const reason = window.prompt('请填写拒绝理由（将通知作者）：', c.rejectReason || '')
   if (reason === null) return
   if (!reason.trim()) {
     errorMsg.value = '拒绝理由不能为空'
@@ -453,7 +448,7 @@ async function removeUser(u: AdminUser) {
             <tr>
               <th>类型</th>
               <th>标题</th>
-              <th>投稿者</th>
+              <th>作者</th>
               <th>对线</th>
               <th>提交时间</th>
               <th class="col-actions">操作</th>
@@ -689,23 +684,8 @@ async function removeUser(u: AdminUser) {
         <p v-if="!loading && users.length === 0" class="admin-tip">还没有用户</p>
       </section>
 
-      <!-- 用户留言 -->
-      <section v-if="activeTab === 'messages'" class="panel">
-        <div v-if="loading" class="admin-tip">加载中…</div>
-        <div v-else-if="!messages.length" class="admin-tip">暂无用户留言</div>
-        <div v-else class="msg-admin-list">
-          <div v-for="m in messages" :key="m.id" class="msg-admin-item">
-            <div class="msg-admin-head">
-              <span class="msg-admin-user">{{ m.username }}</span>
-              <span class="msg-admin-time">{{ m.createdAt }}</span>
-            </div>
-            <div class="msg-admin-content">{{ m.content }}</div>
-          </div>
-        </div>
-      </section>
-
       <!-- 数据面板（英雄 / 装备 / 召唤师技能 / 符文，离线数据） -->
-      <section v-if="activeTab !== 'review' && activeTab !== 'users' && activeTab !== 'messages'" class="panel">
+      <section v-if="activeTab !== 'review' && activeTab !== 'users'" class="panel">
         <div class="sync-bar">
           <div class="sync-info">
             <span class="sync-version">
@@ -1403,40 +1383,5 @@ async function removeUser(u: AdminUser) {
   border: 1px solid var(--gold);
   color: #0a1428;
   font-weight: 700;
-}
-
-/* 用户留言（管理后台） */
-.msg-admin-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.msg-admin-item {
-  background: var(--panel-2);
-  border: 1px solid var(--line-soft);
-  border-radius: 12px;
-  padding: 14px 18px;
-}
-.msg-admin-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-.msg-admin-user {
-  font-size: 13.5px;
-  color: var(--gold-bright);
-  font-weight: 600;
-}
-.msg-admin-time {
-  font-size: 11.5px;
-  color: var(--faint);
-}
-.msg-admin-content {
-  font-size: 13.5px;
-  color: var(--text);
-  line-height: 1.7;
-  white-space: pre-wrap;
-  word-break: break-word;
 }
 </style>

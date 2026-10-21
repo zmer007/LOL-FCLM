@@ -90,7 +90,6 @@ func main() {
 	runeRepo := repository.NewRuneRepository(db)
 	contentRepo := repository.NewContentRepository(db)
 	settingRepo := repository.NewSettingRepository(db)
-	messageRepo := repository.NewMessageRepository(db)
 	favoriteRepo := repository.NewFavoriteRepository(db)
 
 	mailSvc := service.NewMailService(cfg)
@@ -107,7 +106,6 @@ func main() {
 	log.Printf("Data Dragon 数据版本: %s", localReader.Version())
 
 	syncService := service.NewSyncService(localReader, heroRepo, assetRepo, runeRepo, settingRepo, store)
-	messageService := service.NewMessageService(messageRepo, userRepo, valkey)
 	favoriteService := service.NewFavoriteService(favoriteRepo, contentService)
 
 	authHandler := handler.NewAuthHandler(authService)
@@ -117,7 +115,6 @@ func main() {
 	contentHandler := handler.NewContentHandler(contentService)
 	adminHandler := handler.NewAdminHandler(adminService)
 	adminUserHandler := handler.NewAdminUserHandler(adminUserService)
-	messageHandler := handler.NewMessageHandler(messageService)
 	favoriteHandler := handler.NewFavoriteHandler(favoriteService)
 
 	// 确保管理员账号存在（账号密码来自环境变量）
@@ -173,13 +170,10 @@ func main() {
 		// 需登录
 		api.GET("/me", middleware.RequiredAuth(authService), authHandler.Me)
 
-		// 我的内容（普通用户可查看自己的投稿记录，结果通常为空）+ 留言
+		// 我的内容（普通用户可查看自己的整理记录，结果通常为空）
 		auth := api.Group("", middleware.RequiredAuth(authService))
 		{
 			auth.GET("/my/contents", contentHandler.Mine)
-			// 普通用户给管理员留言
-			auth.POST("/messages", messageHandler.Send)
-			auth.GET("/messages/mine", messageHandler.Mine)
 			// 收藏
 			auth.POST("/favorites/:contentId", favoriteHandler.Toggle)
 			auth.GET("/favorites/mine", favoriteHandler.ListMine)
@@ -212,9 +206,6 @@ func main() {
 			admin.POST("/contents/export", contentHandler.Export)
 			admin.POST("/contents/import", contentHandler.Import)
 			admin.GET("/exports/:dir/:file", contentHandler.DownloadExport)
-
-			// 用户留言管理
-			admin.GET("/messages", messageHandler.AdminList)
 
 			// 用户管理
 			admin.GET("/users", adminUserHandler.List)

@@ -17,7 +17,7 @@
     <template v-else>
       <div class="page-head">
         <h1>{{ editId ? '编辑视频' : '上传视频' }}</h1>
-        <p class="sub">投稿至 <em>{{ heroTitle }}</em> 的对线页 · 支持 MP4/MKV/MOV/AVI/WebM 等常见格式，大小不超过 200MB</p>
+        <p class="sub">记录到 <em>{{ heroTitle }}</em> 的对线页 · 支持 MP4/MKV/MOV/AVI/WebM 等常见格式，大小不超过 200MB</p>
       </div>
 
       <!-- 视频文件 -->

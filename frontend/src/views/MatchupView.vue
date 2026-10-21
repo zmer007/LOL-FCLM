@@ -36,7 +36,7 @@
           :trees="trees"
           :shards="shards"
         />
-        <div v-else class="muted-box">暂无推荐方案，欢迎投稿时补充装备与符文</div>
+        <div v-else class="muted-box">暂无推荐方案，装备与符文整理中</div>
       </section>
 
       <!-- 相关内容 -->
